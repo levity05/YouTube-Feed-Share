@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors and local tooling
+.vscode/
+.idea/
+.claude/
+*.swp
+
+# Packed builds (zip for the Chrome Web Store)
+*.zip
+*.crx
+*.pem
+dist/
+
+# Personal data — never commit your own snapshots, debug samples or keys
+yfs_*.json
+yt_feed_*.json
+*.snapshot.json
+.env

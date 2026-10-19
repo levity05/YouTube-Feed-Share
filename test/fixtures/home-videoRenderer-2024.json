@@ -1,0 +1,206 @@
+{
+  "description": "Главная, классический videoRenderer + полка Shorts + реклама",
+  "page": "home",
+  "expect": {
+    "ids": [
+      "dQw4w9WgXcQ",
+      "sssssssssss",
+      "ttttttttttt"
+    ],
+    "primary": true
+  },
+  "data": {
+    "responseContext": {
+      "serviceTrackingParams": []
+    },
+    "contents": {
+      "twoColumnBrowseResultsRenderer": {
+        "tabs": [
+          {
+            "tabRenderer": {
+              "selected": true,
+              "content": {
+                "richGridRenderer": {
+                  "masthead": {
+                    "adSlotRenderer": {
+                      "videoRenderer": {
+                        "videoId": "MASTHEADADX"
+                      }
+                    }
+                  },
+                  "contents": [
+                    {
+                      "richItemRenderer": {
+                        "content": {
+                          "videoRenderer": {
+                            "videoId": "dQw4w9WgXcQ",
+                            "thumbnail": {
+                              "thumbnails": [
+                                {
+                                  "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                                  "width": 480,
+                                  "height": 270
+                                }
+                              ]
+                            },
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Классическое видео"
+                                }
+                              ]
+                            },
+                            "longBylineText": {
+                              "runs": [
+                                {
+                                  "text": "Канал Один",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UC1111111111111111111111",
+                                      "canonicalBaseUrl": "/@channel1"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "publishedTimeText": {
+                              "simpleText": "3 дня назад"
+                            },
+                            "lengthText": {
+                              "simpleText": "10:23"
+                            },
+                            "viewCountText": {
+                              "simpleText": "1 234 567 просмотров"
+                            },
+                            "shortViewCountText": {
+                              "simpleText": "1,2 млн просмотров"
+                            },
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=dQw4w9WgXcQ"
+                                }
+                              },
+                              "watchEndpoint": {
+                                "videoId": "dQw4w9WgXcQ"
+                              }
+                            },
+                            "channelThumbnailSupportedRenderers": {
+                              "channelThumbnailWithLinkRenderer": {
+                                "thumbnail": {
+                                  "thumbnails": [
+                                    {
+                                      "url": "https://yt3.ggpht.com/avatar1=s68",
+                                      "width": 68,
+                                      "height": 68
+                                    },
+                                    {
+                                      "url": "https://yt3.ggpht.com/avatar1=s176",
+                                      "width": 176,
+                                      "height": 176
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "thumbnailOverlays": [
+                              {
+                                "thumbnailOverlayResumePlaybackRenderer": {
+                                  "percentDurationWatched": 40
+                                }
+                              },
+                              {
+                                "thumbnailOverlayTimeStatusRenderer": {
+                                  "text": {
+                                    "simpleText": "10:23"
+                                  },
+                                  "style": "DEFAULT"
+                                }
+                              }
+                            ],
+                            "menu": {
+                              "menuRenderer": {
+                                "items": []
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "richItemRenderer": {
+                        "content": {
+                          "adSlotRenderer": {
+                            "videoRenderer": {
+                              "videoId": "ADADADADADA"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "richSectionRenderer": {
+                        "content": {
+                          "richShelfRenderer": {
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Shorts"
+                                }
+                              ]
+                            },
+                            "contents": [
+                              {
+                                "richItemRenderer": {
+                                  "content": {
+                                    "shortsLockupViewModel": {
+                                      "entityId": "shorts-shelf-item-sssssssssss",
+                                      "onTap": {
+                                        "innertubeCommand": {
+                                          "reelWatchEndpoint": {
+                                            "videoId": "sssssssssss"
+                                          }
+                                        }
+                                      },
+                                      "overlayMetadata": {
+                                        "primaryText": {
+                                          "content": "Шорт один"
+                                        },
+                                        "secondaryText": {
+                                          "content": "2 млн просмотров"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "richItemRenderer": {
+                                  "content": {
+                                    "reelItemRenderer": {
+                                      "videoId": "ttttttttttt",
+                                      "headline": {
+                                        "simpleText": "Шорт два"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "header": {
+      "feedTabbedHeaderRenderer": {}
+    }
+  }
+}

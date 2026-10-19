@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shorts</title>
+    <link rel="icon" href="../../icons/icon32.png" />
+    <link rel="stylesheet" href="shorts.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1><span data-i18n="shortsSettings.title"></span> <span class="pro-tag">PRO</span></h1>
+        <p id="proNote" class="note warn" hidden>
+          <span data-i18n="shortsSettings.proOnly"></span>
+          <a id="getPro" href="#" data-i18n="shortsSettings.openCat"></a>
+        </p>
+      </header>
+
+      <section class="card">
+        <label class="switch"><input type="checkbox" id="enabled" /> <span data-i18n-html="shortsSettings.autoscroll"></span></label>
+        <p class="hint" data-i18n-html="shortsSettings.autoscrollHint"></p>
+        <p class="hint" data-i18n-html="shortsSettings.mediaKeys"></p>
+      </section>
+
+      <section class="card">
+        <h2 data-i18n="shortsSettings.duration"></h2>
+        <p class="hint" data-i18n="shortsSettings.durationHint"></p>
+        <div class="range">
+          <span data-i18n="shortsSettings.from"></span> <input type="number" id="minSec" min="0" max="3600" step="1" /> <span data-i18n="unit.sec"></span>
+          <span data-i18n="shortsSettings.to"></span> <input type="number" id="maxSec" min="0" max="3600" step="1" /> <span data-i18n="unit.sec"></span>
+          <span class="presets">
+            <button type="button" data-preset="0,0" data-i18n="preset.any"></button>
+            <button type="button" data-preset="0,30" data-i18n="preset.upTo30"></button>
+            <button type="button" data-preset="15,60" data-i18n="preset.15to60"></button>
+            <button type="button" data-preset="30,0" data-i18n="preset.skipUnder30"></button>
+          </span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 data-i18n="shortsSettings.authors"></h2>
+        <p class="hint" data-i18n="shortsSettings.authorsHint"></p>
+        <input type="search" id="authorSearch" data-i18n-placeholder="shortsSettings.findAuthor" />
+        <ul id="authors" class="list"></ul>
+      </section>
+
+      <section class="card">
+        <h2 data-i18n="shortsSettings.tags"></h2>
+        <p class="hint" data-i18n="shortsSettings.tagsHint"></p>
+        <div class="add">
+          <input type="text" id="tagInput" data-i18n-placeholder="shortsSettings.addTagPh" />
+          <button type="button" id="tagAdd" data-i18n="shortsSettings.add"></button>
+        </div>
+        <input type="search" id="tagSearch" data-i18n-placeholder="shortsSettings.findTag" />
+        <ul id="tags" class="list"></ul>
+      </section>
+
+      <section class="card">
+        <button type="button" id="clearSeen" data-i18n="shortsSettings.clearSeen"></button>
+        <span id="saved" class="saved" aria-live="polite"></span>
+      </section>
+    </main>
+
+    <script src="../shared/i18n.js"></script>
+    <script src="../locales/en.js"></script>
+    <script src="../shared/shortsrules.js"></script>
+    <script src="shorts.js"></script>
+  </body>
+</html>

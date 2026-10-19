@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>YouTube Feed Share</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <img src="../../icons/icon32.png" alt="" width="22" height="22" />
+      <h1>Feed Share</h1>
+      <button id="openViewer" class="icon-btn" type="button" data-i18n-title="popup.viewer" data-i18n-aria="popup.viewer">📺</button>
+      <button id="openOptions" class="icon-btn" type="button" data-i18n-title="popup.settings" data-i18n-aria="popup.settings">⚙</button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="watch" id="tab-watch"><span aria-hidden="true">▶</span> <span data-i18n="popup.tabWatch"></span></button>
+      <button type="button" role="tab" data-tab="snapshot" id="tab-snapshot"><span aria-hidden="true">📦</span> <span data-i18n="popup.tabSnapshot"></span><span id="jobDot" class="dot" hidden></span></button>
+      <button type="button" role="tab" data-tab="shorts" id="tab-shorts"><span aria-hidden="true">⚡</span> <span data-i18n="popup.tabShorts"></span></button>
+    </nav>
+
+    <!-- ▶ Смотреть: ролик во вкладке + продолжить просмотр -->
+    <section id="pane-watch" class="pane" role="tabpanel" aria-labelledby="tab-watch">
+      <div id="videoCard" class="card" hidden>
+        <p class="label" data-i18n="popup.thisVideo"></p>
+        <p id="videoTitle" class="video-title"></p>
+        <div class="tiles">
+          <button id="videoText" type="button" class="tile"><span class="tile-ico">📝</span><span data-i18n="popup.actText"></span></button>
+          <button id="videoSummary" type="button" class="tile"><span class="tile-ico">✨</span><span data-i18n="popup.actSummary"></span></button>
+          <button id="videoAudio" type="button" class="tile"><span class="tile-ico">🎧</span><span data-i18n="popup.actAudio"></span></button>
+        </div>
+        <p id="videoError" class="hint warn" hidden></p>
+      </div>
+      <p id="noVideo" class="empty" hidden data-i18n="popup.noVideo"></p>
+
+      <div class="section-head">
+        <h2 data-i18n="popup.resume"></h2>
+        <button id="resumeClear" class="link" type="button" hidden data-i18n="popup.resumeClear"></button>
+      </div>
+      <ul id="resumeList" class="resume-list"></ul>
+      <p id="noResume" class="empty" hidden data-i18n="popup.noResume"></p>
+    </section>
+
+    <!-- 📦 Снимок: что собрать → прогресс → результат -->
+    <section id="pane-snapshot" class="pane" role="tabpanel" aria-labelledby="tab-snapshot" hidden>
+      <section id="progress" class="card" hidden>
+        <ol id="steps" class="steps"></ol>
+        <p class="hint" data-i18n="popup.progressHint"></p>
+        <button id="cancel" type="button" class="wide" data-i18n="popup.stop"></button>
+      </section>
+
+      <section id="result" class="card" hidden>
+        <p id="resultText" class="result-text"></p>
+        <div id="resultCounts" class="counts"></div>
+        <div id="healthBox" class="health" hidden>
+          <p id="healthText"></p>
+          <button id="sampleBtn" type="button" data-i18n="popup.sample"></button>
+          <p class="hint" data-i18n="popup.sampleHint"></p>
+        </div>
+        <button id="review" class="primary" type="button" data-i18n="popup.review"></button>
+        <div class="row2">
+          <button id="download" type="button" data-i18n="share.downloadJson"></button>
+          <button id="copy" type="button" data-i18n="share.copyCode"></button>
+        </div>
+        <label class="check small"><input type="checkbox" id="lite" /> <span data-i18n="popup.lite"></span></label>
+        <p id="codeInfo" class="hint"></p>
+      </section>
+
+      <form id="form">
+        <div class="section-head"><h2 data-i18n="popup.whatToCollect"></h2></div>
+        <div class="sources">
+          <div class="src-row">
+            <label class="check"><input type="checkbox" id="src-home" /> <span class="ico">🏠</span> <span data-i18n="feed.home"></span></label>
+            <select id="cnt-home" data-i18n-aria="popup.countHome">
+              <option>10</option><option>20</option><option>30</option><option>50</option>
+              <option>75</option><option>100</option><option>150</option><option>200</option>
+            </select>
+          </div>
+          <div class="src-row">
+            <label class="check"><input type="checkbox" id="src-watch-later" /> <span class="ico">🔖</span> <span data-i18n="feed.watch-later"></span></label>
+            <select id="cnt-watch-later" data-i18n-aria="popup.countWatchLater">
+              <option>25</option><option>50</option><option>100</option><option>200</option><option>500</option>
+            </select>
+          </div>
+          <div class="src-row">
+            <label class="check"><input type="checkbox" id="src-history" /> <span class="ico">👁</span> <span data-i18n="popup.history"></span></label>
+            <select id="cnt-history" data-i18n-aria="popup.countHistory">
+              <option value="last50" data-i18n="popup.last50"></option>
+              <option value="last100" data-i18n="popup.last100"></option>
+              <option value="last200" data-i18n="popup.last200"></option>
+              <option value="today" data-i18n="popup.histToday"></option>
+              <option value="week" data-i18n="popup.histWeek"></option>
+            </select>
+          </div>
+          <label id="historyShortsRow" class="src-sub check" hidden><input type="checkbox" id="historyShorts" /> <span data-i18n="popup.historyShorts"></span></label>
+          <div class="src-row">
+            <label class="check"><input type="checkbox" id="src-shorts" /> <span class="ico">⚡</span> <span>Shorts</span></label>
+            <select id="cnt-shorts" data-i18n-aria="popup.countShorts">
+              <option>10</option><option>20</option><option>30</option><option>50</option><option>100</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chips" role="group" data-i18n-aria="popup.quick">
+          <button type="button" data-preset="home" data-i18n="popup.onlyHome"></button>
+          <button type="button" data-preset="watch-later" data-i18n="popup.later"></button>
+          <button type="button" data-preset="history" data-i18n="popup.history"></button>
+          <button type="button" data-preset="shorts">Shorts</button>
+          <button type="button" data-preset="all" data-i18n="popup.everything"></button>
+        </div>
+
+        <p id="shortsWarn" class="note warn" hidden data-i18n="popup.shortsWarn"></p>
+        <p id="historyWarn" class="note warn" hidden data-i18n="popup.historyWarn"></p>
+        <p id="loginHint" class="note" hidden data-i18n="popup.loginHint"></p>
+
+        <details class="block">
+          <summary data-i18n="popup.filters"></summary>
+          <label class="check"><input type="checkbox" id="excludeShorts" /> <span data-i18n="popup.noShorts"></span></label>
+          <label class="check"><input type="checkbox" id="excludeWatched" /> <span data-i18n="popup.noWatched"></span></label>
+          <label class="check"><input type="checkbox" id="excludeLive" /> <span data-i18n="popup.noLive"></span></label>
+          <div class="duration">
+            <span data-i18n="popup.durationFrom"></span> <input type="number" id="minMinutes" min="0" max="600" placeholder="0" />
+            <span data-i18n="popup.durationTo"></span> <input type="number" id="maxMinutes" min="0" max="600" placeholder="∞" />
+          </div>
+          <label class="field">
+            <span data-i18n="popup.stopWords"></span>
+            <input type="text" id="stopWords" data-i18n-placeholder="popup.stopWordsPh" />
+          </label>
+          <p class="hint" data-i18n="popup.filtersHint"></p>
+        </details>
+
+        <button type="submit" id="collect" class="primary" data-i18n="popup.collect"></button>
+        <p id="tabHint" class="hint center"></p>
+      </form>
+    </section>
+
+    <!-- ⚡ Shorts: автолистание (PRO) и правила -->
+    <section id="pane-shorts" class="pane" role="tabpanel" aria-labelledby="tab-shorts" hidden>
+      <div class="card">
+        <label class="switch-row">
+          <span><span data-i18n="popup.autoscroll"></span> <span class="pro-tag">PRO</span></span>
+          <input type="checkbox" id="autoscroll" class="switch" />
+        </label>
+        <p id="autoscrollHint" class="hint"></p>
+        <button id="getPro" type="button" class="wide" hidden data-i18n="popup.getPro"></button>
+      </div>
+      <p class="hint" data-i18n="popup.shortsIntro"></p>
+      <button id="shortsSettings" type="button" class="wide" data-i18n="popup.shortsSettings"></button>
+    </section>
+
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <script src="../shared/i18n.js"></script>
+    <script src="../locales/en.js"></script>
+    <script src="../shared/feed.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Feed Share</title>
+    <link rel="icon" href="../../icons/icon32.png" />
+    <link rel="stylesheet" href="viewer.css" />
+    <link rel="stylesheet" href="pro.css" />
+    <link rel="stylesheet" href="textpanel.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <button id="menuBtn" class="icon-btn" type="button" data-i18n-aria="viewer.snapshotsList">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" /></svg>
+      </button>
+      <a class="logo" href="#" id="logo">
+        <svg viewBox="0 0 28 20" aria-hidden="true">
+          <rect width="28" height="20" rx="5" fill="#ff0033" />
+          <path d="M11 5.5v9l7.5-4.5z" fill="#fff" />
+        </svg>
+        <span>Feed Share</span>
+        <sup id="proMark" class="pro-mark" hidden>PRO</sup>
+      </a>
+      <div class="search">
+        <input id="search" type="search" data-i18n-placeholder="viewer.search" autocomplete="off" />
+      </div>
+      <div class="top-actions">
+        <button id="proBtn" class="pill pro-btn" type="button" data-i18n="pro.upgrade">🚀 Upgrade to Pro</button>
+        <button id="proBadge" class="pill pro-badge" type="button" hidden>🐈 PRO</button>
+        <button id="importBtn" class="pill" type="button" data-i18n="viewer.import"></button>
+        <button id="themeBtn" class="icon-btn" type="button" data-i18n-aria="theme.label">
+          <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 16V5a7 7 0 0 1 0 14z" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside id="sidebar" class="sidebar">
+        <h2 data-i18n="viewer.snapshots"></h2>
+        <nav id="feedList" class="feed-list"></nav>
+        <p class="side-hint" data-i18n="viewer.sideHint"></p>
+      </aside>
+
+      <main id="main">
+        <section id="empty" class="empty" hidden>
+          <div class="dropzone">
+            <svg viewBox="0 0 28 20" aria-hidden="true">
+              <rect width="28" height="20" rx="5" fill="#ff0033" />
+              <path d="M11 5.5v9l7.5-4.5z" fill="#fff" />
+            </svg>
+            <h1 data-i18n="empty.title"></h1>
+            <p data-i18n="empty.text"></p>
+            <button id="emptyImport" class="pill primary" type="button" data-i18n="empty.button"></button>
+          </div>
+        </section>
+
+        <section id="snapView" hidden>
+          <div id="ownBanner" class="banner" hidden data-i18n="viewer.ownBanner"></div>
+          <div class="feed-head">
+            <div>
+              <h1 id="feedTitle"></h1>
+              <p id="feedMeta" class="muted"></p>
+            </div>
+            <div class="feed-actions">
+              <button id="dlBtn" class="pill" type="button" data-i18n="share.downloadJson"></button>
+              <button id="shareBtn" class="pill" type="button" data-i18n="share.copyCode"></button>
+              <button id="compareBtn" class="pill" type="button" data-i18n="viewer.compare"></button>
+              <button id="refreshBtn" class="pill" type="button" data-i18n="viewer.refresh" data-i18n-title="viewer.refreshTitle"></button>
+              <button id="deleteBtn" class="pill danger" type="button" data-i18n="viewer.delete"></button>
+            </div>
+          </div>
+
+          <nav id="tabs" class="tabs" role="tablist" data-i18n-aria="viewer.sections"></nav>
+
+          <div id="toolbar" class="chips" role="toolbar" data-i18n-aria="viewer.filters">
+            <div class="chip-group" data-group="filter">
+              <button class="chip active" data-value="all" type="button" data-i18n="filter.all"></button>
+              <button class="chip" data-value="unwatched" type="button" data-i18n="filter.unwatched"></button>
+              <button class="chip" data-value="watched" type="button" data-i18n="filter.watched"></button>
+            </div>
+            <button id="newBtn" class="chip new-chip" type="button" data-i18n="new.button"></button>
+            <div class="chip-group" data-group="period" id="periodGroup">
+              <button class="chip active" data-value="all" type="button" data-i18n="period.all"></button>
+              <button class="chip" data-value="today" type="button" data-i18n="day.today"></button>
+              <button class="chip" data-value="week" type="button" data-i18n="period.week"></button>
+            </div>
+            <div class="chip-group" data-group="dur" id="durGroup">
+              <button class="chip active" data-value="any" type="button" data-i18n="dur.any"></button>
+              <button class="chip" data-value="short" type="button" data-i18n="dur.short"></button>
+              <button class="chip" data-value="mid" type="button" data-i18n="dur.mid"></button>
+              <button class="chip" data-value="long" type="button" data-i18n="dur.long"></button>
+            </div>
+            <select id="channelSel" class="chip select" data-i18n-aria="video.channel"></select>
+            <select id="sort" class="chip select" data-i18n-aria="sort.label">
+              <option value="feed" data-i18n="sort.feed"></option>
+              <option value="shortFirst" data-i18n="sort.shortFirst"></option>
+              <option value="longFirst" data-i18n="sort.longFirst"></option>
+              <option value="channel" data-i18n="sort.channel"></option>
+              <option value="views" data-i18n="sort.views"></option>
+            </select>
+            <button id="hiddenToggle" class="chip" type="button"></button>
+          </div>
+
+          <p id="countLine" class="muted count-line"></p>
+          <div id="grid" class="grid"></div>
+
+          <section id="shortsView" class="shorts-view" hidden>
+            <div class="short-stage">
+              <div class="short-frame" id="shortFrame">
+                <iframe
+                  id="shortPlayer"
+                  title="Shorts"
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                ></iframe>
+                <div class="short-overlay">
+                  <a id="shortChannel" class="short-channel" target="_blank" rel="noopener noreferrer"></a>
+                  <div id="shortTitle" class="short-title"></div>
+                </div>
+                <div id="shortWatchedMark" class="short-watched" hidden data-i18n="action.watchedDone"></div>
+                <div id="shortError" class="player-error" hidden>
+                  <p id="shortErrorText"></p>
+                  <div class="err-actions">
+                    <button id="shortMini" class="pill primary" type="button" data-i18n="player.mini"></button>
+                    <a id="shortErrorLink" class="pill" target="_blank" rel="noopener noreferrer" data-i18n="player.onYoutubeShort"></a>
+                  </div>
+                </div>
+              </div>
+              <div class="short-side">
+                <button id="shortPrev" class="round-btn" type="button" data-i18n-aria="nav.prev">
+                  <svg viewBox="0 0 24 24"><path d="M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z" /></svg>
+                </button>
+                <span id="shortCounter" class="short-counter"></span>
+                <button id="shortNext" class="round-btn" type="button" data-i18n-aria="nav.next">
+                  <svg viewBox="0 0 24 24"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z" /></svg>
+                </button>
+                <span class="side-gap"></span>
+                <button id="shortWatched" class="round-btn" type="button" data-i18n-title="action.markWatched" data-i18n-aria="action.markWatched">
+                  <svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" /></svg>
+                </button>
+                <button id="shortHide" class="round-btn" type="button" data-i18n-title="action.hide" data-i18n-aria="action.hide">
+                  <svg viewBox="0 0 24 24"><path d="m19 6.4-1.4-1.4-5.6 5.6L6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z" /></svg>
+                </button>
+                <button id="shortText" class="round-btn emoji" type="button" data-i18n-title="text.tab" data-i18n-aria="text.tab">📝</button>
+                <button id="shortSummary" class="round-btn emoji" type="button" data-i18n-title="ai.tab" data-i18n-aria="ai.tab">✨</button>
+                <a id="shortYoutube" class="round-btn" target="_blank" rel="noopener noreferrer" data-i18n-title="player.onYoutube" data-i18n-aria="player.onYoutube">
+                  <svg viewBox="0 0 24 24"><path d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3zm5 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2z" /></svg>
+                </a>
+              </div>
+            </div>
+            <p class="muted small center" data-i18n="shorts.hint"></p>
+          </section>
+
+          <section id="overview" class="overview" hidden></section>
+        </section>
+      </main>
+    </div>
+
+    <div id="dropOverlay" class="drop-overlay" hidden><div data-i18n="viewer.dropHere"></div></div>
+
+    <dialog id="playerDlg" class="player-dlg" aria-labelledby="mTitle">
+      <div class="player" id="playerBox">
+        <iframe
+          id="player"
+          title="YouTube"
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write"
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+        <div id="playerError" class="player-error" hidden>
+          <p id="playerErrorText"></p>
+          <div class="err-actions">
+            <button id="playerMini" class="pill primary" type="button" data-i18n="player.mini"></button>
+            <a id="playerErrorLink" class="pill" target="_blank" rel="noopener noreferrer" data-i18n="player.onYoutube"></a>
+          </div>
+        </div>
+      </div>
+      <div class="m-info" id="playerInfo">
+        <h2 id="mTitle"></h2>
+        <div class="m-row">
+          <div class="m-channel">
+            <span id="mAvatar" class="avatar"></span>
+            <div>
+              <a id="mChannel" target="_blank" rel="noopener noreferrer"></a>
+              <div id="mMeta" class="muted"></div>
+            </div>
+          </div>
+          <div class="m-actions">
+            <button id="mText" class="pill" type="button" data-i18n="text.tab"></button>
+            <button id="mSummary" class="pill" type="button" data-i18n="ai.tab"></button>
+            <a id="mYoutube" class="pill" target="_blank" rel="noopener noreferrer" data-i18n="player.onYoutube"></a>
+            <button id="mWatched" class="pill" type="button" data-i18n="action.markWatched"></button>
+            <button id="mHide" class="pill" type="button" data-i18n="action.hide"></button>
+            <button id="mPrev" class="icon-btn" type="button" data-i18n-aria="nav.prev">
+              <svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z" /></svg>
+            </button>
+            <button id="mNext" class="icon-btn" type="button" data-i18n-aria="nav.next">
+              <svg viewBox="0 0 24 24"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z" /></svg>
+            </button>
+          </div>
+        </div>
+        <p class="muted small" data-i18n="player.notPlaying"></p>
+      </div>
+      <button class="icon-btn dlg-close" type="button" data-close data-i18n-aria="common.close">
+        <svg viewBox="0 0 24 24"><path d="m19 6.4-1.4-1.4-5.6 5.6L6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z" /></svg>
+      </button>
+    </dialog>
+
+    <dialog id="importDlg" class="small-dlg" aria-labelledby="importTitle">
+      <form method="dialog" id="importForm">
+        <h2 id="importTitle" data-i18n="import.title"></h2>
+        <textarea id="importText" rows="6" data-i18n-placeholder="import.placeholder"></textarea>
+        <p id="importError" class="error" role="alert" hidden></p>
+        <div class="dlg-actions">
+          <label class="pill file-pill">
+            <span data-i18n="import.chooseFile"></span>
+            <input id="fileInput" type="file" accept=".json,application/json" multiple hidden />
+          </label>
+          <span class="spacer"></span>
+          <button class="pill" type="button" data-close data-i18n="common.cancel"></button>
+          <button class="pill primary" type="submit" data-i18n="import.load"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="compareDlg" class="small-dlg" aria-labelledby="compareTitle">
+      <form method="dialog" id="compareForm">
+        <h2 id="compareTitle" data-i18n="compare.title"></h2>
+        <p class="muted small" data-i18n="compare.hint"></p>
+        <div id="compareList" class="compare-list"></div>
+        <div class="dlg-actions">
+          <label class="pill file-pill">
+            <span data-i18n="compare.loadFile"></span>
+            <input id="compareFile" type="file" accept=".json,application/json" hidden />
+          </label>
+          <span class="spacer"></span>
+          <button class="pill" type="button" data-close data-i18n="common.cancel"></button>
+          <button class="pill primary" type="submit" data-i18n="compare.go"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="proDlg" class="pro-dlg" aria-labelledby="proTitle"></dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="../shared/i18n.js"></script>
+    <script src="../locales/en.js"></script>
+    <script src="../shared/feed.js"></script>
+    <script src="../shared/transcript.js"></script>
+    <script src="../shared/ai.js"></script>
+    <script src="analytics.js"></script>
+    <script src="enrich.js"></script>
+    <script src="pro.js"></script>
+    <script src="textpanel.js"></script>
+    <script src="viewer.js"></script>
+  </body>
+</html>

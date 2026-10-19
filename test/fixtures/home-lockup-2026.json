@@ -1,0 +1,428 @@
+{
+  "description": "Главная, lockupViewModel (снято с youtube.com 05.10.2026) + микс",
+  "page": "home",
+  "expect": {
+    "ids": [
+      "pRrmQUm6Zvg",
+      "aaaaaaaaaaa"
+    ],
+    "primary": true,
+    "absent": [
+      "RDxxxxxxxxx"
+    ]
+  },
+  "data": {
+    "responseContext": {
+      "serviceTrackingParams": []
+    },
+    "contents": {
+      "twoColumnBrowseResultsRenderer": {
+        "tabs": [
+          {
+            "tabRenderer": {
+              "selected": true,
+              "content": {
+                "richGridRenderer": {
+                  "masthead": {
+                    "adSlotRenderer": {
+                      "videoRenderer": {
+                        "videoId": "MASTHEADADX"
+                      }
+                    }
+                  },
+                  "contents": [
+                    {
+                      "richItemRenderer": {
+                        "content": {
+                          "lockupViewModel": {
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/pRrmQUm6Zvg/hq720.jpg",
+                                      "width": 360,
+                                      "height": 202
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "text": "10:06",
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                            "animationActivationTargetId": "pRrmQUm6Zvg",
+                                            "lottieData": {
+                                              "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json"
+                                            },
+                                            "animatedText": "Текущее видео",
+                                            "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "animatedThumbnailOverlayViewModel": {
+                                      "thumbnail": {
+                                        "sources": []
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "thumbnailHoverOverlayToggleActionsViewModel": {
+                                      "buttons": [
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "iconName": "WATCH_LATER"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "title": {
+                                  "content": "Превращаем логотип YouTube в монстра"
+                                },
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "YouTube"
+                                            },
+                                            "icon": {
+                                              "name": "CHECK_CIRCLE_FILLED"
+                                            }
+                                          },
+                                          {
+                                            "text": {
+                                              "content": "и Wicked Makers"
+                                            },
+                                            "icon": {
+                                              "name": "CHECK_CIRCLE_FILLED"
+                                            }
+                                          },
+                                          {
+                                            "text": {
+                                              "content": "3,3 млн"
+                                            },
+                                            "accessibilityLabel": "3,3 миллиона просмотров",
+                                            "leadingIcon": {
+                                              "name": "PLAY_ARROW_OUTLINED"
+                                            }
+                                          },
+                                          {
+                                            "text": {
+                                              "content": "4 дн. назад"
+                                            },
+                                            "accessibilityLabel": "4 дня назад"
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                },
+                                "menuButton": {
+                                  "buttonViewModel": {
+                                    "iconName": "MORE_VERT"
+                                  }
+                                }
+                              }
+                            },
+                            "contentId": "pRrmQUm6Zvg",
+                            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=pRrmQUm6Zvg"
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "videoId": "pRrmQUm6Zvg"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "richItemRenderer": {
+                        "content": {
+                          "lockupViewModel": {
+                            "contentId": "aaaaaaaaaaa",
+                            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg",
+                                      "width": 480,
+                                      "height": 270
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "progressBar": {
+                                        "thumbnailOverlayProgressBarViewModel": {
+                                          "startPercent": 100
+                                        }
+                                      },
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "text": "1:02:03",
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "title": {
+                                  "content": "Новый формат"
+                                },
+                                "image": {
+                                  "decoratedAvatarViewModel": {
+                                    "avatar": {
+                                      "avatarViewModel": {
+                                        "image": {
+                                          "sources": [
+                                            {
+                                              "url": "https://yt3.ggpht.com/avatar2=s68",
+                                              "width": 68,
+                                              "height": 68
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "rendererContext": {
+                                      "commandContext": {
+                                        "onTap": {
+                                          "innertubeCommand": {
+                                            "browseEndpoint": {
+                                              "browseId": "UC2222222222222222222222",
+                                              "canonicalBaseUrl": "/@channel2"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "Канал Два"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "15 тыс. просмотров"
+                                            }
+                                          },
+                                          {
+                                            "text": {
+                                              "content": "2 недели назад"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "delimiter": " • "
+                                  }
+                                }
+                              }
+                            },
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=aaaaaaaaaaa"
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "videoId": "aaaaaaaaaaa"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "richItemRenderer": {
+                        "content": {
+                          "lockupViewModel": {
+                            "contentId": "RDxxxxxxxxx",
+                            "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/RDxxxxxxxxx/hqdefault.jpg",
+                                      "width": 480,
+                                      "height": 270
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "progressBar": {
+                                        "thumbnailOverlayProgressBarViewModel": {
+                                          "startPercent": 100
+                                        }
+                                      },
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "text": "1:02:03",
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "title": {
+                                  "content": "Новый формат"
+                                },
+                                "image": {
+                                  "decoratedAvatarViewModel": {
+                                    "avatar": {
+                                      "avatarViewModel": {
+                                        "image": {
+                                          "sources": [
+                                            {
+                                              "url": "https://yt3.ggpht.com/avatar2=s68",
+                                              "width": 68,
+                                              "height": 68
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "rendererContext": {
+                                      "commandContext": {
+                                        "onTap": {
+                                          "innertubeCommand": {
+                                            "browseEndpoint": {
+                                              "browseId": "UC2222222222222222222222",
+                                              "canonicalBaseUrl": "/@channel2"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "Канал Два"
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "15 тыс. просмотров"
+                                            }
+                                          },
+                                          {
+                                            "text": {
+                                              "content": "2 недели назад"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "delimiter": " • "
+                                  }
+                                }
+                              }
+                            },
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=RDxxxxxxxxx"
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "videoId": "RDxxxxxxxxx"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "header": {
+      "feedTabbedHeaderRenderer": {}
+    }
+  }
+}

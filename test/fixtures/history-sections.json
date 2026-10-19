@@ -1,0 +1,346 @@
+{
+  "description": "История по дням",
+  "page": "history",
+  "expect": {
+    "ids": [
+      "hhhhhhhhhh1",
+      "hhhhhhhhhh2",
+      "hhhhhhhhhh3"
+    ],
+    "primary": true
+  },
+  "data": {
+    "contents": {
+      "twoColumnBrowseResultsRenderer": {
+        "tabs": [
+          {
+            "tabRenderer": {
+              "content": {
+                "sectionListRenderer": {
+                  "contents": [
+                    {
+                      "itemSectionRenderer": {
+                        "header": {
+                          "itemSectionHeaderRenderer": {
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Сегодня"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "contents": [
+                          {
+                            "videoRenderer": {
+                              "videoId": "hhhhhhhhhh1",
+                              "thumbnail": {
+                                "thumbnails": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                                    "width": 480,
+                                    "height": 270
+                                  }
+                                ]
+                              },
+                              "title": {
+                                "runs": [
+                                  {
+                                    "text": "Классическое видео"
+                                  }
+                                ]
+                              },
+                              "longBylineText": {
+                                "runs": [
+                                  {
+                                    "text": "Канал Один",
+                                    "navigationEndpoint": {
+                                      "browseEndpoint": {
+                                        "browseId": "UC1111111111111111111111",
+                                        "canonicalBaseUrl": "/@channel1"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "publishedTimeText": {
+                                "simpleText": "3 дня назад"
+                              },
+                              "lengthText": {
+                                "simpleText": "10:00"
+                              },
+                              "viewCountText": {
+                                "simpleText": "1 234 567 просмотров"
+                              },
+                              "shortViewCountText": {
+                                "simpleText": "1,2 млн просмотров"
+                              },
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/watch?v=dQw4w9WgXcQ"
+                                  }
+                                },
+                                "watchEndpoint": {
+                                  "videoId": "dQw4w9WgXcQ"
+                                }
+                              },
+                              "channelThumbnailSupportedRenderers": {
+                                "channelThumbnailWithLinkRenderer": {
+                                  "thumbnail": {
+                                    "thumbnails": [
+                                      {
+                                        "url": "https://yt3.ggpht.com/avatar1=s68",
+                                        "width": 68,
+                                        "height": 68
+                                      },
+                                      {
+                                        "url": "https://yt3.ggpht.com/avatar1=s176",
+                                        "width": 176,
+                                        "height": 176
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "thumbnailOverlays": [
+                                {
+                                  "thumbnailOverlayResumePlaybackRenderer": {
+                                    "percentDurationWatched": 100
+                                  }
+                                },
+                                {
+                                  "thumbnailOverlayTimeStatusRenderer": {
+                                    "text": {
+                                      "simpleText": "10:00"
+                                    },
+                                    "style": "DEFAULT"
+                                  }
+                                }
+                              ],
+                              "menu": {
+                                "menuRenderer": {
+                                  "items": []
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "videoRenderer": {
+                              "videoId": "hhhhhhhhhh2",
+                              "thumbnail": {
+                                "thumbnails": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                                    "width": 480,
+                                    "height": 270
+                                  }
+                                ]
+                              },
+                              "title": {
+                                "runs": [
+                                  {
+                                    "text": "Классическое видео"
+                                  }
+                                ]
+                              },
+                              "longBylineText": {
+                                "runs": [
+                                  {
+                                    "text": "Канал Один",
+                                    "navigationEndpoint": {
+                                      "browseEndpoint": {
+                                        "browseId": "UC1111111111111111111111",
+                                        "canonicalBaseUrl": "/@channel1"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "publishedTimeText": {
+                                "simpleText": "3 дня назад"
+                              },
+                              "lengthText": {
+                                "simpleText": "10:00"
+                              },
+                              "viewCountText": {
+                                "simpleText": "1 234 567 просмотров"
+                              },
+                              "shortViewCountText": {
+                                "simpleText": "1,2 млн просмотров"
+                              },
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/watch?v=dQw4w9WgXcQ"
+                                  }
+                                },
+                                "watchEndpoint": {
+                                  "videoId": "dQw4w9WgXcQ"
+                                }
+                              },
+                              "channelThumbnailSupportedRenderers": {
+                                "channelThumbnailWithLinkRenderer": {
+                                  "thumbnail": {
+                                    "thumbnails": [
+                                      {
+                                        "url": "https://yt3.ggpht.com/avatar1=s68",
+                                        "width": 68,
+                                        "height": 68
+                                      },
+                                      {
+                                        "url": "https://yt3.ggpht.com/avatar1=s176",
+                                        "width": 176,
+                                        "height": 176
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "thumbnailOverlays": [
+                                {
+                                  "thumbnailOverlayResumePlaybackRenderer": {
+                                    "percentDurationWatched": 30
+                                  }
+                                },
+                                {
+                                  "thumbnailOverlayTimeStatusRenderer": {
+                                    "text": {
+                                      "simpleText": "10:00"
+                                    },
+                                    "style": "DEFAULT"
+                                  }
+                                }
+                              ],
+                              "menu": {
+                                "menuRenderer": {
+                                  "items": []
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "itemSectionRenderer": {
+                        "header": {
+                          "itemSectionHeaderRenderer": {
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Вчера"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "contents": [
+                          {
+                            "videoRenderer": {
+                              "videoId": "hhhhhhhhhh3",
+                              "thumbnail": {
+                                "thumbnails": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                                    "width": 480,
+                                    "height": 270
+                                  }
+                                ]
+                              },
+                              "title": {
+                                "runs": [
+                                  {
+                                    "text": "Классическое видео"
+                                  }
+                                ]
+                              },
+                              "longBylineText": {
+                                "runs": [
+                                  {
+                                    "text": "Канал Один",
+                                    "navigationEndpoint": {
+                                      "browseEndpoint": {
+                                        "browseId": "UC1111111111111111111111",
+                                        "canonicalBaseUrl": "/@channel1"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "publishedTimeText": {
+                                "simpleText": "3 дня назад"
+                              },
+                              "lengthText": {
+                                "simpleText": "10:00"
+                              },
+                              "viewCountText": {
+                                "simpleText": "1 234 567 просмотров"
+                              },
+                              "shortViewCountText": {
+                                "simpleText": "1,2 млн просмотров"
+                              },
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/watch?v=dQw4w9WgXcQ"
+                                  }
+                                },
+                                "watchEndpoint": {
+                                  "videoId": "dQw4w9WgXcQ"
+                                }
+                              },
+                              "channelThumbnailSupportedRenderers": {
+                                "channelThumbnailWithLinkRenderer": {
+                                  "thumbnail": {
+                                    "thumbnails": [
+                                      {
+                                        "url": "https://yt3.ggpht.com/avatar1=s68",
+                                        "width": 68,
+                                        "height": 68
+                                      },
+                                      {
+                                        "url": "https://yt3.ggpht.com/avatar1=s176",
+                                        "width": 176,
+                                        "height": 176
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "thumbnailOverlays": [
+                                {
+                                  "thumbnailOverlayResumePlaybackRenderer": {
+                                    "percentDurationWatched": 50
+                                  }
+                                },
+                                {
+                                  "thumbnailOverlayTimeStatusRenderer": {
+                                    "text": {
+                                      "simpleText": "10:00"
+                                    },
+                                    "style": "DEFAULT"
+                                  }
+                                }
+                              ],
+                              "menu": {
+                                "menuRenderer": {
+                                  "items": []
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,204 @@
+{
+  "format": "yt-feed-share",
+  "version": 2,
+  "exportedAt": "2026-10-05T18:00:00.000Z",
+  "author": "Демо",
+  "feeds": [
+    {
+      "type": "home",
+      "videos": [
+        {
+          "id": "pRrmQUm6Zvg",
+          "title": "Превращаем логотип YouTube в монстра",
+          "channel": "YouTube и Wicked Makers",
+          "channelUrl": "/@YouTube",
+          "duration": "10:06",
+          "views": "3,3 миллиона просмотров",
+          "published": "4 дн. назад"
+        },
+        {
+          "id": "jNQXAC9IVRw",
+          "title": "Me at the zoo",
+          "channel": "jawed",
+          "channelUrl": "/@jawed",
+          "duration": "0:19",
+          "views": "380 млн просмотров",
+          "published": "21 год назад"
+        },
+        {
+          "id": "dQw4w9WgXcQ",
+          "title": "Rick Astley - Never Gonna Give You Up (Official Video)",
+          "channel": "Rick Astley",
+          "channelUrl": "/@RickAstleyYT",
+          "duration": "3:33",
+          "views": "1,7 млрд просмотров",
+          "published": "16 лет назад"
+        },
+        {
+          "id": "9bZkp7q19f0",
+          "title": "PSY - GANGNAM STYLE (강남스타일) M/V",
+          "channel": "officialpsy",
+          "channelUrl": "/@officialpsy",
+          "duration": "4:13",
+          "views": "5,4 млрд просмотров",
+          "published": "14 лет назад"
+        },
+        {
+          "id": "kJQP7kiw5Fk",
+          "title": "Luis Fonsi - Despacito ft. Daddy Yankee",
+          "channel": "LuisFonsiVEVO",
+          "channelUrl": "/@LuisFonsiVEVO",
+          "duration": "4:42",
+          "views": "8,8 млрд просмотров",
+          "published": "9 лет назад"
+        },
+        {
+          "id": "aqz-KE-bpKQ",
+          "title": "Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film",
+          "channel": "Blender",
+          "channelUrl": "/@BlenderOfficial",
+          "duration": "10:35",
+          "views": "17 млн просмотров",
+          "published": "11 лет назад"
+        },
+        {
+          "id": "M7lc1UVf-VE",
+          "title": "YouTube Developers Live: Embedded Web Player Customization",
+          "channel": "Google for Developers",
+          "channelUrl": "/@GoogleDevelopers",
+          "duration": "1:24:53",
+          "views": "1,9 млн просмотров",
+          "published": "13 лет назад"
+        },
+        {
+          "id": "LXb3EKWsInQ",
+          "title": "COSTA RICA IN 4K 60fps HDR (ULTRA HD)",
+          "channel": "Jacob + Katie Schwarz",
+          "channelUrl": "/@JacobKatieSchwarz",
+          "duration": "5:13",
+          "views": "190 млн просмотров",
+          "published": "8 лет назад"
+        }
+      ]
+    },
+    {
+      "type": "watch-later",
+      "videos": [
+        {
+          "id": "aqz-KE-bpKQ",
+          "title": "Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film",
+          "channel": "Blender",
+          "channelUrl": "/@BlenderOfficial",
+          "duration": "10:35",
+          "views": "17 млн просмотров",
+          "published": "11 лет назад"
+        },
+        {
+          "id": "M7lc1UVf-VE",
+          "title": "YouTube Developers Live: Embedded Web Player Customization",
+          "channel": "Google for Developers",
+          "channelUrl": "/@GoogleDevelopers",
+          "duration": "1:24:53",
+          "views": "1,9 млн просмотров",
+          "published": "13 лет назад"
+        },
+        {
+          "id": "LXb3EKWsInQ",
+          "title": "COSTA RICA IN 4K 60fps HDR (ULTRA HD)",
+          "channel": "Jacob + Katie Schwarz",
+          "channelUrl": "/@JacobKatieSchwarz",
+          "duration": "5:13",
+          "views": "190 млн просмотров",
+          "published": "8 лет назад"
+        },
+        {
+          "id": "jNQXAC9IVRw",
+          "title": "Me at the zoo",
+          "channel": "jawed",
+          "channelUrl": "/@jawed",
+          "duration": "0:19",
+          "views": "380 млн просмотров",
+          "published": "21 год назад"
+        }
+      ]
+    },
+    {
+      "type": "history",
+      "videos": [
+        {
+          "id": "dQw4w9WgXcQ",
+          "title": "Rick Astley - Never Gonna Give You Up (Official Video)",
+          "channel": "Rick Astley",
+          "channelUrl": "/@RickAstleyYT",
+          "duration": "3:33",
+          "views": "1,7 млрд просмотров",
+          "published": "16 лет назад",
+          "watchedDay": "2026-10-05",
+          "progress": 100
+        },
+        {
+          "id": "9bZkp7q19f0",
+          "title": "PSY - GANGNAM STYLE (강남스타일) M/V",
+          "channel": "officialpsy",
+          "channelUrl": "/@officialpsy",
+          "duration": "4:13",
+          "views": "5,4 млрд просмотров",
+          "published": "14 лет назад",
+          "watchedDay": "2026-10-05",
+          "progress": 40
+        },
+        {
+          "id": "pRrmQUm6Zvg",
+          "title": "Превращаем логотип YouTube в монстра",
+          "channel": "YouTube и Wicked Makers",
+          "channelUrl": "/@YouTube",
+          "duration": "10:06",
+          "views": "3,3 миллиона просмотров",
+          "published": "4 дн. назад",
+          "watchedDay": "2026-10-04",
+          "progress": 75
+        },
+        {
+          "id": "kJQP7kiw5Fk",
+          "title": "Luis Fonsi - Despacito ft. Daddy Yankee",
+          "channel": "LuisFonsiVEVO",
+          "channelUrl": "/@LuisFonsiVEVO",
+          "duration": "4:42",
+          "views": "8,8 млрд просмотров",
+          "published": "9 лет назад",
+          "watchedDay": "2026-10-01",
+          "progress": 100
+        },
+        {
+          "id": "LXb3EKWsInQ",
+          "title": "COSTA RICA IN 4K 60fps HDR (ULTRA HD)",
+          "channel": "Jacob + Katie Schwarz",
+          "channelUrl": "/@JacobKatieSchwarz",
+          "duration": "5:13",
+          "views": "190 млн просмотров",
+          "published": "8 лет назад",
+          "watchedDay": "2026-09-25",
+          "progress": 20
+        }
+      ]
+    },
+    {
+      "type": "shorts",
+      "videos": [
+        {
+          "id": "jNQXAC9IVRw",
+          "title": "Me at the zoo (как шорт)",
+          "channel": "jawed",
+          "channelUrl": "/@jawed",
+          "short": true
+        },
+        {
+          "id": "dQw4w9WgXcQ",
+          "title": "Never gonna give you up — шорт-версия",
+          "channel": "Rick Astley",
+          "short": true
+        }
+      ]
+    }
+  ]
+}

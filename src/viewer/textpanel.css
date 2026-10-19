@@ -1,0 +1,269 @@
+/* Панель «Текст / Сводка» (textpanel.js) — в плеере и под Shorts. */
+
+.text-panel {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elev, var(--bg));
+}
+
+.shorts-view .text-panel {
+  max-width: 760px;
+  margin: 16px auto 0;
+}
+
+.tp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tp-tabs {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+}
+
+.tp-tab {
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tp-tab.active {
+  border-bottom-color: var(--text);
+  color: var(--text);
+}
+
+.tp-close {
+  width: 32px;
+  height: 32px;
+}
+
+.tp-body {
+  max-height: min(52vh, 520px);
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+}
+
+.tp-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tp-spacer {
+  flex: 1;
+}
+
+/* Пресеты промта и выбор модели (вкладка «Сводка») */
+.tp-ai-controls {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tp-chip {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--chip);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tp-chip:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.tp-chip.active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.tp-chip:disabled:not(.active) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tp-model {
+  max-width: 220px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev, var(--bg));
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.tp-elapsed {
+  font-variant-numeric: tabular-nums;
+}
+
+.tp-edit {
+  min-width: 34px;
+  padding: 0 10px;
+}
+
+/* Правка промта пресета прямо в панели */
+.tp-editor {
+  margin: 8px 0;
+}
+
+.tp-prompt {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: 12px/1.45 Consolas, 'Courier New', monospace;
+  resize: vertical;
+}
+
+.tp-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #3ea6ff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tp-link:hover {
+  text-decoration: underline;
+}
+
+.tp-check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.tp-check input {
+  accent-color: var(--accent);
+}
+
+.tp-note {
+  margin: 6px 0;
+  color: var(--text-2);
+}
+
+.tp-note.small {
+  font-size: 12px;
+}
+
+.tp-error {
+  margin: 6px 0 10px;
+  color: var(--danger);
+}
+
+.tp-key {
+  flex: 1;
+  min-width: 200px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.tp-transcript {
+  line-height: 1.55;
+}
+
+.tp-transcript p {
+  margin: 0 0 10px;
+}
+
+.tp-line {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.tp-time {
+  flex: 0 0 auto;
+  min-width: 46px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #3ea6ff;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tp-time:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.tp-time:disabled {
+  color: var(--text-2);
+  cursor: default;
+}
+
+.tp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.tp-tag {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--chip);
+  font-size: 13px;
+}
+
+.tp-body h4 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+
+.tp-points,
+.tp-chrono {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.tp-points li,
+.tp-chrono li {
+  margin: 3px 0;
+}
+
+.tp-chrono .tp-time {
+  min-width: 0;
+  margin-right: 6px;
+}
+
+.round-btn.emoji {
+  font-size: 20px;
+}

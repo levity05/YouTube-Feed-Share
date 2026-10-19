@@ -1,0 +1,5 @@
+# Единые переводы строк (LF) для всех участников, независимо от ОС.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.zip binary

@@ -1,0 +1,67 @@
+{
+  "description": "Вымышленный будущий формат: renderer неизвестен, есть только videoId/ссылки — должен спасти общий поиск",
+  "page": "home",
+  "expect": {
+    "ids": [
+      "NEWfmt00001",
+      "NEWfmt00002",
+      "NEWfmt00003"
+    ],
+    "primary": false,
+    "absent": [
+      "MIXmix00001"
+    ]
+  },
+  "data": {
+    "contents": {
+      "twoColumnBrowseResultsRenderer": {
+        "tabs": [
+          {
+            "tabRenderer": {
+              "content": {
+                "feedGridViewModel": {
+                  "items": [
+                    {
+                      "videoCardViewModel": {
+                        "videoId": "NEWfmt00001",
+                        "title": {
+                          "content": "Ролик в новом формате"
+                        },
+                        "byline": {
+                          "text": "Канал"
+                        }
+                      }
+                    },
+                    {
+                      "videoCardViewModel": {
+                        "onTap": {
+                          "link": "/watch?v=NEWfmt00002&pp=abc"
+                        },
+                        "headline": {
+                          "simpleText": "Только ссылка"
+                        }
+                      }
+                    },
+                    {
+                      "videoCardViewModel": {
+                        "image": {
+                          "url": "https://i.ytimg.com/vi/NEWfmt00003/hqdefault.jpg"
+                        }
+                      }
+                    },
+                    {
+                      "mixCardViewModel": {
+                        "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                        "videoId": "MIXmix00001"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

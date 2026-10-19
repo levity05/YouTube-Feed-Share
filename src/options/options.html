@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feed Share</title>
+    <link rel="icon" href="../../icons/icon32.png" />
+    <link rel="stylesheet" href="../shorts/shorts.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <!-- Меню разделов: пункты собираются из заголовков секций (options.js) -->
+      <nav class="side" data-i18n-aria="options.nav">
+        <div class="brand"><img src="../../icons/icon32.png" alt="" width="22" height="22" /> Feed Share</div>
+        <ul id="nav"></ul>
+      </nav>
+
+      <main>
+        <h1 data-i18n="options.title"></h1>
+
+        <section class="card" id="general">
+          <h2 data-i18n="options.language"></h2>
+          <select id="lang"></select>
+          <p class="hint" data-i18n="options.languageHint"></p>
+        </section>
+
+        <section class="card" id="ai">
+          <h2 data-i18n="options.ai"></h2>
+          <p class="hint" data-i18n-html="options.aiIntro"></p>
+          <label class="field">
+            <span data-i18n="options.key"></span>
+            <span class="row">
+              <input type="password" id="key" placeholder="AIza…" autocomplete="off" spellcheck="false" />
+              <button type="button" id="showKey" data-i18n="options.show"></button>
+              <button type="button" id="checkKey" class="primary" data-i18n="options.check"></button>
+            </span>
+          </label>
+          <p id="keyStatus" class="hint" aria-live="polite"></p>
+          <p class="hint" data-i18n="ai.keyPrivacy"></p>
+
+          <label class="field">
+            <span data-i18n="options.model"></span>
+            <select id="model"></select>
+          </label>
+          <p class="hint" data-i18n="options.modelHint"></p>
+        </section>
+
+        <section class="card" id="prompts">
+          <h2 data-i18n="options.presets"></h2>
+          <p class="hint" data-i18n="options.presetsIntro"></p>
+          <div class="presets-ui">
+            <div class="preset-side">
+              <ul id="presetList" class="preset-list" role="listbox" data-i18n-aria="options.presets"></ul>
+              <button type="button" id="newPreset" data-i18n="options.newPreset"></button>
+            </div>
+            <div class="preset-edit">
+              <label class="field">
+                <span data-i18n="options.presetName"></span>
+                <input type="text" id="presetName" maxlength="40" autocomplete="off" />
+              </label>
+              <textarea id="prompt" rows="20" spellcheck="false" data-i18n-aria="options.presets"></textarea>
+              <div class="row">
+                <button type="button" id="savePreset" class="primary" data-i18n="ai.savePrompt"></button>
+                <button type="button" id="makeDefault" data-i18n="options.makeDefault"></button>
+                <button type="button" id="resetPrompt" data-i18n="ai.resetPrompt"></button>
+                <button type="button" id="duplicatePreset" data-i18n="options.duplicate"></button>
+                <button type="button" id="deletePreset" class="danger" data-i18n="options.delete"></button>
+                <span id="presetState" class="hint" aria-live="polite"></span>
+              </div>
+              <p id="promptHint" class="hint"></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="shorts">
+          <h2 data-i18n="options.shorts"></h2>
+          <label class="switch-row">
+            <span><span data-i18n="popup.autoscroll"></span> <span class="pro-tag">PRO</span></span>
+            <input type="checkbox" id="autoscroll" class="switch" />
+          </label>
+          <p id="autoscrollHint" class="hint"></p>
+          <p class="hint" data-i18n="options.shortsHint"></p>
+          <button type="button" id="openShorts" data-i18n="options.openShorts"></button>
+        </section>
+
+        <section class="card" id="share">
+          <h2 data-i18n="options.share"></h2>
+          <label class="field">
+            <span data-i18n="popup.author"></span>
+            <input type="text" id="author" maxlength="60" data-i18n-placeholder="popup.authorPh" />
+          </label>
+          <label class="field">
+            <span data-i18n="popup.viewerUrl"></span>
+            <input type="url" id="viewerUrl" placeholder="https://name.github.io/yt-feed-share/src/viewer/viewer.html" />
+          </label>
+          <p class="hint" data-i18n="popup.viewerUrlHint"></p>
+        </section>
+
+        <section class="card" id="data">
+          <h2 data-i18n="options.data"></h2>
+          <p class="hint" data-i18n="options.dataHint"></p>
+          <div class="row">
+            <button type="button" id="openViewer" data-i18n="popup.viewer"></button>
+            <button type="button" id="clearResume" data-i18n="options.clearResume"></button>
+            <button type="button" id="clearAiCache" data-i18n="options.clearCache"></button>
+          </div>
+        </section>
+      </main>
+    </div>
+    <span id="saved" class="saved" aria-live="polite"></span>
+
+    <script src="../shared/i18n.js"></script>
+    <script src="../locales/en.js"></script>
+    <script src="../shared/ai.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>
