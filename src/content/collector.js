@@ -287,6 +287,65 @@
     return P.withFallback(primaryLists, genericLists, scope ? P.scrapeLinks(scope) : []);
   }
 
+  // ---------- 🧠 ремонт парсера с помощью ИИ ----------
+
+  const RECIPES_KEY = 'yfs_parser_recipes';
+
+  function loadRecipes() {
+    return chrome.storage.local
+      .get(RECIPES_KEY)
+      .then((d) => P.setLearned(d[RECIPES_KEY] || []))
+      .catch(() => 0);
+  }
+  loadRecipes();
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => area === 'local' && changes[RECIPES_KEY] && loadRecipes());
+  } catch {
+    /* расширение перезагрузили */
+  }
+
+  /**
+   * Основной парсер не узнаёт новые карточки, а общий поиск видит их id → просим у Gemini «рецепт» разбора.
+   * Только если пользователь включил это в настройках (yfs_ai.repair) и есть ключ. В модель уходят 2–3 обрезанные
+   * карточки (структура и короткие строки), рецепт проверяется здесь же и только тогда сохраняется.
+   * Ответ: { status: off | skip | failed | fixed, renderer?, found?, total? }.
+   */
+  async function tryRepair(page, initialJson) {
+    let ai = {};
+    try {
+      ai = (await chrome.storage.local.get('yfs_ai')).yfs_ai || {};
+    } catch {
+      return { status: 'off' };
+    }
+    if (!ai.repair || !ai.key) return { status: 'off' };
+    const datas = [initialJson, ...lastRaws(page, 6)].filter(Boolean);
+    const primary = new Set(datas.flatMap((d) => P.extractVideos(d)).map((v) => v.id));
+    const known = [...new Set(datas.flatMap((d) => P.extractGeneric(d)).map((v) => v.id))];
+    const missing = known.filter((id) => !primary.has(id));
+    if (missing.length < 3) return { status: 'skip' };
+    const cards = P.findCards(datas, missing, 3);
+    if (!cards.length) return { status: 'failed', reason: 'no-cards' };
+    let res = null;
+    try {
+      res = await chrome.runtime.sendMessage({
+        type: 'yfs:ai-repair',
+        reqId: 'repair' + Date.now(),
+        args: { key: ai.key, model: ai.model || '', models: ai.models || [], page, ids: cards.map((c) => c.id), cards: cards.map((c) => ({ key: c.key, skeleton: P.skeleton(c.node) })) },
+      });
+    } catch {
+      res = null;
+    }
+    if (!res || !res.ok) return { status: 'failed', reason: (res && res.code) || 'no-answer' };
+    const recipe = res.out.recipe;
+    const check = P.validateRecipe(recipe, datas, missing, known);
+    if (!check.ok) return { status: 'failed', reason: 'invalid', found: check.found, total: check.total };
+    const list = ((await chrome.storage.local.get(RECIPES_KEY))[RECIPES_KEY] || []).filter((r) => r && r.renderer !== recipe.renderer);
+    list.push({ ...recipe, page, learnedAt: Date.now(), model: res.out.model, found: check.found });
+    await chrome.storage.local.set({ [RECIPES_KEY]: list.slice(-20) });
+    P.setLearned(list);
+    return { status: 'fixed', renderer: recipe.renderer, found: check.found, total: check.total, model: res.out.model };
+  }
+
   /** Образец ответа YouTube для отладки парсера — только локально, отправить его может лишь сам пользователь. */
   async function saveSample(page, health, initialJson) {
     try {
@@ -791,9 +850,22 @@
       let seen = 0;
       let idle = 0;
       let reason = 'done';
+      let repair = null;
 
       for (;;) {
         ({ videos: all, health } = await snapshotOf(page, initial));
+        // Похоже на поломку — один раз за сбор пробуем починить парсер с помощью ИИ.
+        if (health.suspicious && !repair) {
+          repair = await tryRepair(page, initialJson);
+          if (repair.status === 'fixed') {
+            // Рецепт выучен — разбираем уже полученные ответы заново.
+            const st = net[page];
+            Object.assign(st, { parsed: 0, videos: [], generic: [] });
+            initial.videos = initialJson ? P.extractVideos(initialJson) : [];
+            ({ videos: all, health } = await snapshotOf(page, initial));
+          }
+        }
+        if (repair && repair.status !== 'off' && repair.status !== 'skip') health.ai = repair;
         const progress = goals.map((g) => ({ type: g.type, found: Math.min(g.pick(all).length, g.target), target: g.target }));
         report({ phase: 'progress', page, goals: progress, scanned: all.length, fallback: health.suspicious });
 

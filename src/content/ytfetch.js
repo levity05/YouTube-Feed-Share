@@ -19,7 +19,7 @@
   let seq = 0;
   const pending = new Map();
   // Свой канал с номером версии hook.js (HOOK_VERSION): старые копии во вкладке на него не отвечают.
-  const HOOK_CHANNEL = 'yfs:tx-v5';
+  const HOOK_CHANNEL = 'yfs:tx-v6';
   document.addEventListener(HOOK_CHANNEL + '-response', (e) => {
     let msg;
     try {

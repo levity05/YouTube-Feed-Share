@@ -12,7 +12,7 @@
  */
 (function () {
   'use strict';
-  const HOOK_VERSION = 5; // при изменении — поменять и HOOK_CHANNEL в ytfetch.js
+  const HOOK_VERSION = 6; // при изменении — поменять и HOOK_CHANNEL в ytfetch.js
   if ((window.__yfsHookVersion || 0) >= HOOK_VERSION) return;
   const firstInstall = !window.__yfsHooked;
   window.__yfsHooked = true;
@@ -104,6 +104,14 @@
     document.dispatchEvent(new CustomEvent('yfs:chunk', { detail: meta + '\n' + responseText }));
   }
 
+  // Фильтр ленты: ответы главной, поиска и рекомендаций — изолированному скрипту, только пока фильтр включён
+  // (по ним он знает длительность, канал и прочее о карточках, которые YouTube рисует без этих данных).
+  const FEED_RE = /\/youtubei\/v1\/(browse|search|next)(\?|$)/;
+  let feedTap = false;
+  function tapFeed(url, status, text) {
+    if (feedTap && status === 200 && text && text[0] === '{') document.dispatchEvent(new CustomEvent('yfs:feeddata', { detail: text }));
+  }
+
   const originalFetch = window.fetch;
   window.fetch = function (input, init) {
     let bodyPromise = null;
@@ -122,6 +130,11 @@
     }
 
     const promise = originalFetch.apply(this, arguments);
+    if (feedTap && FEED_RE.test(url)) {
+      promise
+        .then((res) => Promise.resolve(res.ok ? res.clone().text() : '').then((text) => tapFeed(url, res.status, text)))
+        .catch(() => {});
+    }
     if (TRANSCRIPT_RE.test(url)) {
       promise
         .then((res) => Promise.resolve(res.ok ? res.clone().text() : '').then((text) => noteTranscript(url, res.status, text)))
@@ -144,6 +157,16 @@
     return xhrOpen.apply(this, arguments);
   };
   XMLHttpRequest.prototype.send = function (body) {
+    if (feedTap && this.__yfsUrl && FEED_RE.test(this.__yfsUrl)) {
+      this.addEventListener('load', () => {
+        try {
+          const rt = this.responseType;
+          tapFeed(this.__yfsUrl, this.status, rt === '' || rt === 'text' ? this.responseText : rt === 'json' ? JSON.stringify(this.response) : '');
+        } catch {
+          /* не мешаем странице */
+        }
+      });
+    }
     if (this.__yfsUrl && TRANSCRIPT_RE.test(this.__yfsUrl)) {
       this.addEventListener('loadend', () => {
         try {
@@ -460,7 +483,115 @@
     }
   }
 
+  function mainPlayer() {
+    return document.getElementById('movie_player');
+  }
+
+  /**
+   * Громкость через API плеера (YouTube сам запоминает её между роликами и показывает в своём ползунке).
+   * kind — JSON: { volume: 0–100 } или { muted: true/false }; без полей — только прочитать.
+   */
+  function volumeControl(kind) {
+    const p = mainPlayer();
+    if (!p || typeof p.getVolume !== 'function') return 'null';
+    let req = {};
+    try {
+      req = kind ? JSON.parse(kind) : {};
+    } catch {
+      req = {};
+    }
+    if (Number.isFinite(req.volume)) {
+      p.setVolume(Math.max(0, Math.min(100, Math.round(req.volume))));
+      if (req.volume > 0 && p.isMuted()) p.unMute();
+    }
+    if (req.muted === true) p.mute();
+    if (req.muted === false) p.unMute();
+    return JSON.stringify({ volume: p.getVolume(), muted: !!p.isMuted() });
+  }
+
+  /** Соседний ролик в очереди плеера (плейлист, «Джем»): kind — next | prev. */
+  function playerNav(kind) {
+    const p = mainPlayer();
+    if (!p) return 'false';
+    if (kind === 'next' && typeof p.nextVideo === 'function') p.nextVideo();
+    else if (kind === 'prev' && typeof p.previousVideo === 'function') p.previousVideo();
+    else return 'false';
+    return 'true';
+  }
+
+  /**
+   * Переход на ролик внутри приложения YouTube, без перезагрузки страницы: то же событие yt-navigate,
+   * которое шлёт клик по карточке. Страница (и экран аудио-режима поверх неё) не мигает.
+   * Возвращает 'true', если событие отправлено; дошёл ли переход — проверяет вызывающий.
+   */
+  function spaNavigate(videoId) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return 'false';
+    const app = document.querySelector('ytd-app');
+    if (!app) return 'false';
+    const url = '/watch?v=' + videoId;
+    const endpoint = {
+      commandMetadata: { webCommandMetadata: { url, webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } },
+      watchEndpoint: { videoId },
+    };
+    try {
+      app.dispatchEvent(new CustomEvent('yt-navigate', { bubbles: true, composed: true, detail: { endpoint } }));
+      return 'true';
+    } catch {
+      return 'false';
+    }
+  }
+
+  /**
+   * Что известно о ролике как о музыке: категория, тип музыкального видео (YouTube помечает клипы
+   * и «Topic»-треки), автор, ключевые слова. Нужно аудио- и музыкальному режиму.
+   */
+  function musicInfo(videoId) {
+    const p = mainPlayer();
+    const pr = p && typeof p.getPlayerResponse === 'function' ? p.getPlayerResponse() : null;
+    const vd = (pr && pr.videoDetails) || {};
+    if (!pr || (videoId && vd.videoId !== videoId)) return 'null';
+    const mf = (pr.microformat && pr.microformat.playerMicroformatRenderer) || {};
+    return JSON.stringify({
+      id: vd.videoId || '',
+      title: vd.title || '',
+      author: vd.author || '',
+      category: mf.category || '',
+      musicVideoType: vd.musicVideoType || '',
+      keywords: (vd.keywords || []).slice(0, 20),
+      lengthSec: Number(vd.lengthSeconds) || 0,
+    });
+  }
+
+  /**
+   * Включить/выключить передачу ответов ленты. При включении сразу отдаём данные уже открытой страницы
+   * (ytInitialData) и .data карточек, которые YouTube успел нарисовать.
+   */
+  function feedTapControl(kind) {
+    feedTap = kind === 'on';
+    if (!feedTap) return 'null';
+    const parts = [];
+    try {
+      if (window.ytInitialData) parts.push(window.ytInitialData);
+    } catch {
+      /* нет данных страницы */
+    }
+    for (const el of document.querySelectorAll('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer')) {
+      const d = el.data || (el.__data && el.__data.data);
+      if (d && typeof d === 'object') parts.push({ [el.tagName === 'YTD-RICH-ITEM-RENDERER' ? 'richItem' : el.tagName === 'YTD-COMPACT-VIDEO-RENDERER' ? 'compactVideoRenderer' : 'videoRenderer']: d });
+    }
+    try {
+      return JSON.stringify(parts);
+    } catch {
+      return '[]';
+    }
+  }
+
   const HANDLERS = {
+    feedtap: (req) => feedTapControl(String(req.kind || '')),
+    volume: (req) => volumeControl(String(req.kind || '')),
+    nav: (req) => playerNav(String(req.kind || '')),
+    goto: (req) => spaNavigate(String(req.kind || '')),
+    music: (req) => musicInfo(String(req.kind || '')),
     quality: (req) => lowQuality(req.kind === 'low'),
     ytpanel: (req) => youtubeTranscript(String(req.kind || ''), false),
     'ytpanel-open': (req) => youtubeTranscript(String(req.kind || ''), true),

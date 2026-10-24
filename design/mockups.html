@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Макеты окон — YouTube Feed Share</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f8; --card: #ffffff; --text: #17171c; --muted: #5d5d6b; --line: #00000022; --g1: #00000008; --g2: #0000001a; --g3: #00000030;
+  --acc: #6c3bd8; --acc-soft: #6c3bd822; --ok: #1d8f4b;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111114; --card: #1b1b20; --text: #f0f0f4; --muted: #a3a3b2; --line: #ffffff26; --g1: #ffffff0c; --g2: #ffffff1c; --g3: #ffffff36; --acc: #a98bff; --acc-soft: #a98bff26; --ok: #4cd08a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif; }
+header { padding: 20px 16px 8px; max-width: 1280px; margin: 0 auto; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+.lead { margin: 0; color: var(--muted); max-width: 820px; }
+nav.windows { position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; padding: 10px 16px; overflow-x: auto; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav.windows button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+nav.windows button[aria-selected='true'] { border-color: var(--acc); background: var(--acc-soft); font-weight: 600; }
+nav.windows .pick { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--ok); color: #fff; font-size: 11px; line-height: 20px; text-align: center; font-weight: 700; }
+main { max-width: 1280px; margin: 0 auto; padding: 16px 16px 150px; }
+.win-head h2 { margin: 6px 0 2px; font-size: 19px; }
+.win-head p { margin: 0 0 14px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
+.variant { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 2px solid var(--line); border-radius: 16px; background: var(--card); }
+.variant.chosen { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+.vhead { display: flex; align-items: center; gap: 10px; }
+.letter { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: var(--g2); font-weight: 800; }
+.chosen .letter { background: var(--acc); color: #fff; }
+.vhead b { flex: 1; }
+.tag { padding: 2px 8px; border-radius: 10px; background: var(--g1); color: var(--muted); font-size: 11px; white-space: nowrap; }
+ul.pc { margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+ul.pc li { display: flex; gap: 6px; }
+ul.pc li::before { content: '+'; color: var(--ok); font-weight: 800; }
+ul.pc li.no::before { content: '−'; color: #d9534f; }
+.choose { height: 38px; border: 1px solid var(--line); border-radius: 19px; background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.choose:hover { background: var(--g1); }
+.chosen .choose { border-color: transparent; background: var(--acc); color: #fff; }
+.choose:focus-visible, nav button:focus-visible, .tab:focus-visible, .acc-h:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 10px 16px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--card) 96%, transparent); backdrop-filter: blur(8px); }
+footer .in { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; max-width: 1280px; margin: 0 auto; }
+footer textarea { flex: 1 1 320px; min-height: 40px; max-height: 84px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; resize: vertical; }
+footer button { height: 40px; padding: 0 18px; border: 0; border-radius: 20px; background: var(--acc); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+footer .ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+#done { color: var(--muted); font-size: 13px; }
+
+/* ----- каркасы (без наполнения) ----- */
+.wf { --wfb: var(--bg); position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--wfb); color: var(--muted); font-size: 11px; line-height: 1.3; user-select: none; }
+.wf.popup { width: 100%; max-width: 330px; height: 440px; margin: 0 auto; }
+.wf.page { height: 340px; }
+.wf.chat { width: 100%; max-width: 360px; height: 460px; margin: 0 auto; background: #18181b; color: #adadb8; border-color: #ffffff22; }
+.wf.chat .b, .wf.chat .l, .wf.chat .chip { background: #ffffff1c; }
+.wf.chat .tab.on, .wf.chat .chip.on { background: #9147ff; color: #fff; }
+.wf.player { height: 300px; background: #0e0e12; color: #aaa; border-color: #ffffff22; }
+.wf.player .b, .wf.player .l, .wf.player .chip { background: #ffffff22; }
+.fill { flex: 1; min-height: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 6px; }
+.pad { padding: 10px; }
+.between { justify-content: space-between; }
+.wrap { flex-wrap: wrap; }
+.b { min-height: 10px; border-radius: 6px; background: var(--g2); }
+.b.h { background: var(--g3); }
+.l { height: 7px; margin: 3px 0; border-radius: 4px; background: var(--g2); }
+.l.s { width: 40%; } .l.m { width: 65%; } .l.f { width: 100%; }
+.t { aspect-ratio: 16 / 9; border-radius: 6px; background: var(--g2); }
+.av { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%; background: var(--g3); }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 10px; background: var(--g2); white-space: nowrap; }
+.chip.on { background: var(--acc); color: #fff; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tab { padding: 4px 9px; border-radius: 9px; cursor: pointer; white-space: nowrap; border: 0; background: transparent; color: inherit; font: inherit; }
+.tab:hover { background: var(--g1); }
+.tab.on { background: var(--acc); color: #fff; }
+.tabs.line .tab { border-radius: 0; border-bottom: 2px solid transparent; }
+.tabs.line .tab.on { background: transparent; border-bottom-color: var(--acc); color: var(--text); }
+.ico { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: var(--g3); font-size: 11px; }
+.ico.big { width: 30px; height: 30px; font-size: 15px; border-radius: 9px; }
+.sw { width: 26px; height: 15px; border-radius: 8px; background: var(--g3); position: relative; flex: 0 0 auto; }
+.sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
+.sw.on { background: var(--acc); } .sw.on::after { left: 13px; }
+.topbar { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+.botbar { display: flex; justify-content: space-around; padding: 6px 4px; border-top: 1px solid var(--line); flex: 0 0 auto; }
+.botbar .it { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px 10px; border-radius: 12px; cursor: pointer; }
+.botbar .it.on { background: var(--acc-soft); color: var(--text); }
+.fab { position: absolute; right: 10px; bottom: 10px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--acc); color: #fff; cursor: pointer; }
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 62%; z-index: 4; padding: 10px; border-left: 1px solid var(--line); background: var(--card); box-shadow: -8px 0 20px #0003; transform: translateX(105%); transition: transform .2s; }
+.drawer.l { right: auto; left: 0; border-left: 0; border-right: 1px solid var(--line); transform: translateX(-105%); }
+.open > .drawer { transform: none; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding: 10px; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; background: var(--card); box-shadow: 0 -8px 20px #0003; transform: translateY(105%); transition: transform .2s; }
+.open > .sheet { transform: none; }
+.pop { position: absolute; z-index: 4; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 8px 22px #0004; display: none; }
+.open > .pop, .open .pop.sh { display: block; }
+.acc { border-bottom: 1px solid var(--line); }
+.acc-h { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 4px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.acc-b { display: none; padding: 0 4px 8px; }
+.acc.open .acc-b { display: block; }
+.acc-h::after { content: '▾'; margin-left: auto; }
+.acc.open .acc-h::after { content: '▴'; }
+.panel { display: none; } .panel.show { display: block; }
+.scroll { overflow: auto; scrollbar-width: thin; }
+.msg { display: flex; gap: 6px; padding: 2px 8px; align-items: center; }
+.msg .l { margin: 0; flex: 1; }
+.nm { flex: 0 0 34px; height: 7px; border-radius: 4px; background: #9147ff99; }
+.hint { padding: 6px 10px; color: var(--muted); font-size: 11px; }
+.player .seek { height: 5px; margin: 6px 10px; border-radius: 3px; background: #ffffff33; display: flex; gap: 1px; overflow: hidden; }
+.player .seek i { display: block; height: 100%; }
+.g { background: #2ba640; } .y { background: #f2a20c; } .s { background: #717171; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Макеты окон</h1>
+  <p class="lead">Это пустые каркасы без наполнения: у каждого окна несколько вариантов. Кликайте по вкладкам, кнопкам и значкам внутри макетов — они «живые». Выберите понравившийся вариант у каждого окна (кнопка «Выбрать»), затем скопируйте итог внизу и пришлите мне — я перенесу выбранное в расширение.</p>
+</header>
+<nav class="windows" id="windows" role="tablist" aria-label="Окна"></nav>
+<main id="main"></main>
+<footer>
+  <div class="in">
+    <span id="done"></span>
+    <textarea id="summary" readonly aria-label="Итог выбора"></textarea>
+    <button id="copy" type="button">Скопировать выбор</button>
+    <button id="reset" type="button" class="ghost">Сбросить</button>
+  </div>
+</footer>
+<script>
+'use strict';
+/* ---------- вспомогательное: части каркасов ---------- */
+const L = (n = 3, cls = '') => Array.from({ length: n }, (_, i) => `<div class="l ${i === n - 1 ? 's' : i % 2 ? 'm' : 'f'} ${cls}"></div>`).join('');
+const T = (n) => Array.from({ length: n }, () => `<div class="col" style="flex:1;min-width:0"><div class="t"></div><div class="l m"></div><div class="l s"></div></div>`).join('');
+const CH = (labels, on = 0) => labels.map((x, i) => `<span class="chip ${i === on ? 'on' : ''}">${x}</span>`).join('');
+const TABS = (labels, on = 0, cls = '', panels = false) => `<div class="tabs ${cls}">${labels.map((x, i) => `<button type="button" class="tab ${i === on ? 'on' : ''}" ${panels ? `data-p="${i}"` : ''}>${x}</button>`).join('')}</div>`;
+const SW = (n, onIdx = [0]) => Array.from({ length: n }, (_, i) => `<div class="row between"><div class="col" style="flex:1"><div class="l m"></div><div class="l s"></div></div><div class="sw ${onIdx.includes(i) ? 'on' : ''}"></div></div>`).join('');
+const MSG = (n) => Array.from({ length: n }, () => `<div class="msg"><span class="nm"></span><div class="l"></div></div>`).join('');
+const TILES = (n) => Array.from({ length: n }, () => `<div class="b pad col" style="height:64px;align-items:flex-start"><span class="ico big">▢</span><div class="l m" style="width:60%"></div></div>`).join('');
+
+/* ---------- окна и варианты ---------- */
+const WINDOWS = [
+  { id: 'popup', icon: '🧩', title: 'Popup расширения', note: 'Окно по клику на значок расширения: плитки действий (текст, сводка, аудио, СДВГ), снимок ленты, «Продолжить просмотр», состояние парсера.',
+    variants: [
+      { id: 'A', title: 'Вкладки сверху (как сейчас)', tag: 'Material · tabs', pros: ['привычно, всё видно сразу'], cons: ['плитки и вкладки конкурируют за место'],
+        html: `<div class="wf popup col"><div class="topbar"><span class="ico">▶</span><div class="l m" style="flex:1"></div><span class="ico">⚙</span></div><div class="pad">${TABS(['Снимок', 'Смотреть', 'Ещё'], 1, 'line', true)}</div><div class="pad col fill scroll"><div class="row" style="gap:8px"><div style="flex:1" class="col">${TILES(2)}</div><div style="flex:1" class="col">${TILES(2)}</div></div><div class="b pad">${L(2)}</div><div class="b pad">${L(3)}</div></div></div>` },
+      { id: 'B', title: 'Нижняя навигация', tag: 'Material 3 · navigation bar', pros: ['пункты под пальцем и мышью', 'работает как мобильное приложение'], cons: ['вкладок не больше 4–5'],
+        html: `<div class="wf popup col"><div class="topbar"><div class="l m" style="flex:1"></div><span class="ico">⚙</span></div><div class="pad col fill scroll"><div class="row" style="gap:8px"><div style="flex:1" class="col">${TILES(2)}</div><div style="flex:1" class="col">${TILES(2)}</div></div><div class="b pad">${L(3)}</div></div><div class="botbar" data-group>${['📦', '▶', '🎛', '⚙'].map((x, i) => `<div class="it ${i === 1 ? 'on' : ''}"><span class="ico">${x}</span><span>раздел</span></div>`).join('')}</div></div>` },
+      { id: 'C', title: 'Главная + разделы с кнопкой «назад»', tag: 'iOS HIG · drill-down', pros: ['главная чистая: крупные кнопки действий', 'каждый раздел на всё окно'], cons: ['на один клик больше до раздела'],
+        html: `<div class="wf popup col" data-view><div class="panel show" data-pane="home"><div class="topbar"><div class="l m" style="flex:1"></div><span class="ico">⚙</span></div><div class="pad col"><div class="b h pad col" style="height:76px"><div class="l m"></div><div class="l s"></div></div><div class="row" style="gap:8px"><div style="flex:1" class="col">${TILES(2)}</div><div style="flex:1" class="col">${TILES(2)}</div></div><button type="button" class="tab" data-go="sec" style="background:var(--g2);padding:8px">Снимок ленты ›</button><button type="button" class="tab" data-go="sec" style="background:var(--g2);padding:8px">Продолжить просмотр ›</button></div></div><div class="panel" data-pane="sec"><div class="topbar"><button type="button" class="tab" data-go="home">‹ Назад</button><div class="l m" style="flex:1"></div></div><div class="pad col">${L(3)}<div class="b" style="height:70px"></div>${L(4)}</div></div></div>` },
+      { id: 'D', title: 'Поиск действий («что сделать?»)', tag: 'Command palette', pros: ['быстрее всего для частых действий', 'масштабируется на новые функции'], cons: ['надо привыкнуть печатать'],
+        html: `<div class="wf popup col"><div class="pad col"><div class="b h row" style="height:32px;padding:0 10px">🔍<div class="l m" style="flex:1;margin:0"></div></div><div class="row wrap">${CH(['Текст', 'Сводка', 'Аудио', 'СДВГ', 'Снимок'], 0)}</div></div><div class="pad col fill scroll">${Array.from({ length: 6 }, () => `<div class="row b pad" style="height:36px"><span class="ico">▢</span><div class="l m" style="flex:1;margin:0"></div><span>⏎</span></div>`).join('')}</div></div>` },
+    ] },
+  { id: 'settings', icon: '⚙', title: 'Страница настроек', note: 'Полная страница: язык, AI, СДВГ, фильтр ленты, аудио, трансляции, пресеты промтов, Shorts, обмен, данные.',
+    variants: [
+      { id: 'A', title: 'Меню слева + карточки (как сейчас)', tag: 'Fluent · NavigationView', pros: ['видно все разделы', 'привычно для настроек'], cons: ['на узком окне меню прячется'],
+        html: `<div class="wf page row" style="align-items:stretch"><div class="col pad" style="width:30%;border-right:1px solid var(--line)">${Array.from({ length: 8 }, (_, i) => `<div class="row" style="padding:4px 6px;border-radius:7px;${i === 2 ? 'background:var(--acc-soft)' : ''}"><span class="ico">▢</span><div class="l m" style="flex:1;margin:0"></div></div>`).join('')}</div><div class="col pad fill scroll"><div class="b pad col">${SW(3, [0, 2])}</div><div class="b pad col">${SW(2)}</div></div></div>` },
+      { id: 'B', title: 'Вкладки сверху, один раздел на экране', tag: 'Material · scrollable tabs', pros: ['нет бесконечной прокрутки', 'много места для раздела'], cons: ['разделы не видны одновременно'],
+        html: `<div class="wf page col"><div class="pad">${TABS(['Язык', 'AI', 'СДВГ', 'Лента', 'Аудио', 'Чат', 'Промты', '…'], 2, 'line', true)}</div><div class="pad col fill scroll"><div class="b pad col">${SW(4, [1])}</div><div class="b pad col">${L(4)}</div></div></div>` },
+      { id: 'C', title: 'Поиск + аккордеон', tag: 'Apple Settings · search', pros: ['любую настройку находит поиск', 'всё на одной странице, но компактно'], cons: ['надо раскрывать разделы'],
+        html: `<div class="wf page col"><div class="pad"><div class="b h row" style="height:30px;padding:0 10px">🔍<div class="l m" style="flex:1;margin:0"></div></div></div><div class="pad fill scroll">${['AI-сводки', 'СДВГ-режим', 'Фильтр ленты', 'Аудио и музыка', 'Трансляции'].map((x, i) => `<div class="acc ${i === 1 ? 'open' : ''}"><button type="button" class="acc-h"><span class="ico">▢</span><div class="l m" style="width:40%;margin:0"></div></button><div class="acc-b col">${SW(2, [0])}</div></div>`).join('')}</div></div>` },
+      { id: 'D', title: 'Плитки разделов → панель справа', tag: 'Dashboard · master-detail', pros: ['наглядно: каждая функция — плитка с переключателем', 'быстро включить/выключить'], cons: ['детали открываются отдельно'],
+        html: `<div class="wf page" data-view><div class="pad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${Array.from({ length: 6 }, (_, i) => `<button type="button" class="b pad col tab" data-toggle style="height:70px;align-items:flex-start;text-align:left"><span class="ico">▢</span><div class="l m" style="width:70%"></div><div class="sw ${i % 2 ? '' : 'on'}"></div></button>`).join('')}</div><div class="drawer col"><div class="row between"><div class="l m" style="width:60%;margin:0"></div><button type="button" class="tab" data-toggle>✕</button></div>${SW(4, [0, 3])}</div></div>` },
+    ] },
+  { id: 'filter', icon: '🎛', title: 'Панель фильтра ленты', note: 'Открывается поверх YouTube: скрывать Shorts и т.п., длительность, язык, музыка, каналы, слова. Кнопку 🎛 можно перетаскивать.',
+    variants: [
+      { id: 'A', title: 'Поповер со вкладками у кнопки (как сейчас)', tag: 'Popover', pros: ['рядом с кнопкой, не закрывает ленту целиком'], cons: ['тесно; много прокрутки внутри'],
+        html: `<div class="wf page" data-view><div class="pad col"><div class="row">${CH(['Все', 'Музыка', 'Джемы'], 0)}</div><div class="row" style="gap:8px">${T(3)}</div></div><div class="fab" data-toggle>🎛</div><div class="pop sh" style="right:10px;bottom:52px;width:200px"><div class="open pad" style="padding:0"></div>${TABS(['Скрыть', 'Группы', 'Музыка'], 0, '', true)}<div class="col" style="margin-top:6px"><div class="row wrap">${CH(['Shorts', 'Эфиры', 'Премьеры'], 0)}</div>${L(3)}</div></div></div>` },
+      { id: 'B', title: 'Боковая панель на всю высоту', tag: 'Drawer · NN/g', pros: ['много места, ничего не прыгает', 'видно ленту слева и результат фильтра'], cons: ['сужает ленту'],
+        html: `<div class="wf page" data-view><div class="pad col"><div class="row">${CH(['Все', 'Музыка'], 0)}</div><div class="row" style="gap:8px">${T(3)}</div></div><div class="fab" data-toggle>🎛</div><div class="drawer col" style="width:52%"><div class="row between"><div class="l m" style="width:50%;margin:0"></div><button type="button" class="tab" data-toggle>✕</button></div>${TABS(['Скрыть', 'Группы', 'Музыка'], 0, 'line')}${L(2)}<div class="row wrap">${CH(['Shorts', 'Эфиры', 'Просмотрено'], 0)}</div>${L(4)}</div></div>` },
+      { id: 'C', title: 'Полоса быстрых чипов над лентой + «Ещё»', tag: 'YouTube chips', pros: ['самые частые переключатели в один клик, всегда на виду', 'выглядит как родная полоса YouTube'], cons: ['занимает строку; детали — в поповере «Ещё»'],
+        html: `<div class="wf page col" data-view><div class="row pad" style="border-bottom:1px solid var(--line)">${CH(['🚫 Shorts', '🚫 Эфиры', '⏱ 4–20', '🎵 Музыка', '🗂 Группы'], 0)}<button type="button" class="chip" data-toggle>Ещё ▾</button></div><div class="pad fill"><div class="row" style="gap:8px">${T(3)}</div></div><div class="pop" style="right:10px;top:40px;width:200px">${L(2)}<div class="row wrap">${CH(['Язык', 'Каналы', 'Слова'], 0)}</div>${L(3)}</div></div>` },
+      { id: 'D', title: 'Нижний лист с поиском настроек', tag: 'Bottom sheet', pros: ['крупные элементы, удобно мышью и пальцем', 'есть поиск по настройкам'], cons: ['закрывает низ ленты'],
+        html: `<div class="wf page" data-view><div class="pad col"><div class="row">${CH(['Все', 'Музыка'], 0)}</div><div class="row" style="gap:8px">${T(3)}</div></div><div class="fab" data-toggle>🎛</div><div class="sheet col" style="height:62%"><div class="b h row" style="height:28px;padding:0 10px">🔍<div class="l m" style="flex:1;margin:0"></div></div><div class="row wrap">${CH(['Shorts', 'Эфиры', 'Премьеры', 'Просмотрено', 'Миксы'], 0)}</div>${L(4)}</div></div>` },
+    ] },
+  { id: 'groups', icon: '🗂', title: 'Лента по группам', note: 'Показывает уже загруженные карточки группами (авторы, тип, длительность, язык, хештеги). Сейчас справа бывает две полосы прокрутки — в любом варианте это исправлено: прокручивается только один блок.',
+    variants: [
+      { id: 'A', title: 'Список групп с липкими заголовками (как сейчас)', tag: 'Sticky headers', pros: ['простая вертикальная лента', 'видно сразу много роликов'], cons: ['длинный список; нужно сворачивать группы'],
+        html: `<div class="wf page col"><div class="row pad" style="border-bottom:1px solid var(--line)">${CH(['Авторы', 'Тип', 'Длительность', 'Язык', '#'], 0)}</div><div class="pad col fill scroll">${[1, 2].map(() => `<div class="row" style="border-bottom:1px solid var(--line);padding:4px 0"><span>▾</span><div class="l m" style="width:30%;margin:0"></div><span class="chip">12</span></div><div class="row" style="gap:8px">${T(3)}</div>`).join('')}</div></div>` },
+      { id: 'B', title: 'Две панели: группы слева, ролики справа', tag: 'Master-detail', pros: ['две независимые прокрутки — это ожидаемо', 'мгновенно прыгаете между группами', 'видно, сколько в каждой'], cons: ['роликов на экране меньше'],
+        html: `<div class="wf page col"><div class="row pad" style="border-bottom:1px solid var(--line)">${CH(['Авторы', 'Тип', 'Длительность', 'Язык'], 0)}</div><div class="row fill" style="align-items:stretch"><div class="col pad scroll" style="width:32%;border-right:1px solid var(--line)">${Array.from({ length: 7 }, (_, i) => `<div class="row" style="padding:4px 6px;border-radius:7px;${i === 1 ? 'background:var(--acc-soft)' : ''}"><div class="l m" style="flex:1;margin:0"></div><span class="chip">${12 - i}</span></div>`).join('')}</div><div class="pad fill scroll" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-content:start">${T(4)}</div></div></div>` },
+      { id: 'C', title: 'Горизонтальные полки (карусели)', tag: 'Netflix-style rows', pros: ['вся лента — как витрина: видно много групп сразу', 'не нужна длинная прокрутка внутри группы'], cons: ['надо листать полку вбок'],
+        html: `<div class="wf page col"><div class="row pad" style="border-bottom:1px solid var(--line)">${CH(['Авторы', 'Тип', 'Язык'], 0)}</div><div class="pad col fill scroll">${[1, 2, 3].map(() => `<div class="row between"><div class="l m" style="width:34%;margin:0"></div><span>все ›</span></div><div class="row" style="gap:8px;overflow:hidden">${T(4).replace(/flex:1;min-width:0/g, 'flex:0 0 28%')}</div>`).join('')}</div></div>` },
+      { id: 'D', title: 'Плотный список (строки) + быстрые чипы групп', tag: 'Compact list', pros: ['максимум информации на экране', 'удобно для музыки: «играть группу»'], cons: ['мелкие превью'],
+        html: `<div class="wf page col"><div class="row pad wrap" style="border-bottom:1px solid var(--line)">${CH(['Все 130', 'Канал A 12', 'Канал B 9', 'Канал C 7', '+'], 0)}</div><div class="pad col fill scroll">${Array.from({ length: 7 }, () => `<div class="row"><div class="t" style="width:56px"></div><div class="col" style="flex:1"><div class="l m"></div><div class="l s"></div></div><span class="ico">▶</span></div>`).join('')}</div></div>` },
+    ] },
+  { id: 'audio', icon: '🎧', title: 'Аудио-режим', note: 'Экран поверх страницы: обложка, управление, очередь треков, текст песни / расшифровка / план СДВГ.',
+    variants: [
+      { id: 'A', title: 'Три колонки: управление | очередь | текст (как сейчас)', tag: 'Desktop media app', pros: ['всё на виду на большом экране'], cons: ['тесно на небольших окнах'],
+        html: `<div class="wf page row pad" style="gap:10px;align-items:stretch"><div class="col" style="width:30%"><div class="t"></div>${L(3)}<div class="b" style="height:14px"></div><div class="row between"><span class="ico">⏮</span><span class="ico big">▶</span><span class="ico">⏭</span></div></div><div class="col scroll" style="width:26%">${Array.from({ length: 7 }, () => `<div class="row"><span style="width:10px">1</span><div class="l m" style="flex:1;margin:0"></div></div>`).join('')}</div><div class="col fill scroll">${TABS(['Текст', 'Песня', 'План'], 1)}${L(8)}</div></div>` },
+      { id: 'B', title: 'Текст по центру, плеер полосой внизу, очередь выезжает', tag: 'Spotify / Apple Music', pros: ['текст читается крупно', 'похоже на привычные музыкальные приложения'], cons: ['очередь скрыта до клика'],
+        html: `<div class="wf page col" data-view><div class="topbar">${TABS(['Текст', 'Песня', 'План'], 1)}<span style="flex:1"></span><button type="button" class="tab" data-toggle>☰ Очередь</button></div><div class="pad col fill scroll" style="align-items:center">${L(8)}</div><div class="row pad" style="border-top:1px solid var(--line)"><div class="t" style="width:46px"></div><div class="col" style="flex:1"><div class="l m"></div><div class="l s"></div></div><span class="ico">⏮</span><span class="ico big">▶</span><span class="ico">⏭</span></div><div class="drawer col scroll" style="width:46%">${L(10)}</div></div>` },
+      { id: 'C', title: 'Мини-плеер: тонкая полоса, текст — по кнопке', tag: 'Mini player', pros: ['почти не мешает страницам YouTube', 'можно слушать и читать комментарии'], cons: ['текст не на виду'],
+        html: `<div class="wf page col" data-view><div class="pad col fill"><div class="row" style="gap:8px">${T(3)}</div></div><div class="sheet col" style="height:60%;transform:translateY(105%)"><div class="row">${TABS(['Текст', 'Песня', 'План'], 1)}</div>${L(7)}</div><div class="row pad" style="position:absolute;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-top:1px solid var(--line)"><div class="t" style="width:46px"></div><div class="col" style="flex:1"><div class="l m"></div><div class="b" style="height:5px"></div></div><span class="ico">⏮</span><span class="ico big">▶</span><span class="ico">⏭</span><button type="button" class="tab" data-toggle-sibling>⌃</button></div></div>` },
+    ] },
+  { id: 'focus', icon: '⚡', title: 'СДВГ-режим (план просмотра)', note: 'Пресеты, тип ролика, модель, план по частям: смотреть / ускорить / пропустить (три значка у каждой части).',
+    variants: [
+      { id: 'A', title: 'Боковая панель справа (как сейчас)', tag: 'Side panel', pros: ['много места для списка частей'], cons: ['закрывает часть страницы'],
+        html: `<div class="wf page row" style="align-items:stretch"><div class="pad col fill"><div class="t" style="height:90px;aspect-ratio:auto"></div>${L(3)}</div><div class="col pad" style="width:52%;border-left:1px solid var(--line)"><div class="row wrap">${CH(['Реклама', 'Мягко', 'Норм', 'Жёстко', 'Лучшее'], 2)}</div><div class="b" style="height:12px"></div>${Array.from({ length: 4 }, () => `<div class="row"><span class="chip on">▶</span><span class="chip">⏩</span><span class="chip">⏭</span><div class="l m" style="flex:1;margin:0"></div></div>`).join('')}</div></div>` },
+      { id: 'B', title: 'Таймлайн под плеером, правка в поповере', tag: 'Timeline-first', pros: ['план виден прямо на шкале', 'клик по части — три значка рядом', 'ничего не закрывает видео'], cons: ['детали списком — по кнопке'],
+        html: `<div class="wf player col" data-view><div class="b" style="margin:8px;height:120px"></div><div class="seek" style="height:9px"><i class="s" style="flex:2"></i><i class="g" style="flex:4"></i><i class="y" style="flex:3"></i><i class="g" style="flex:3"></i><i class="s" style="flex:2"></i></div><div class="row pad"><button type="button" class="chip on" data-toggle>⚡ −46%</button>${CH(['Норм', 'Игры'], 0)}</div><div class="pop" style="left:12px;bottom:50px;width:210px"><div class="row" style="margin-bottom:6px"><span class="chip on">▶</span><span class="chip">⏩</span><span class="chip">⏭</span><div class="l m" style="flex:1;margin:0"></div></div>${L(2)}</div></div>` },
+      { id: 'C', title: 'Компактный поповер у кнопки', tag: 'Popover', pros: ['минимум: пресет и «Составить план»', 'остальное — в «Ещё»'], cons: ['список частей тесный'],
+        html: `<div class="wf player col" data-view><div class="b" style="margin:8px;height:120px"></div><div class="seek"><i class="g" style="flex:4"></i><i class="y" style="flex:3"></i><i class="s" style="flex:2"></i></div><div class="row pad"><button type="button" class="chip" data-toggle>⚡ СДВГ</button></div><div class="pop" style="left:12px;bottom:50px;width:200px"><div class="row wrap">${CH(['Реклама', 'Норм', 'Жёстко'], 1)}</div><button type="button" class="chip on" style="margin:6px 0">Составить план</button><div class="row between"><div class="l m" style="width:60%"></div><span>Ещё ▾</span></div></div></div>` },
+    ] },
+  { id: 'chat', icon: '📡', title: 'Чат трансляции', note: 'Собственный чат в стиле Twitch: лента, поле ввода, переписки с отдельными людьми или группой.',
+    variants: [
+      { id: 'A', title: 'Вкладки переписок над лентой (как сейчас)', tag: 'Tabs', pros: ['переключаетесь как в мессенджере', 'у каждой вкладки счётчик'], cons: ['много людей — вкладки не помещаются'],
+        html: `<div class="wf chat col"><div class="topbar" style="justify-content:center"><b>ЧАТ ТРАНСЛЯЦИИ</b></div>${TABS(['Чат', '👥 Группа', 'Маша', 'Вася', '+'], 0, 'line', true)}<div class="col fill scroll" style="padding:6px 0">${MSG(10)}</div><div class="pad col"><div class="b h" style="height:34px"></div><div class="row between"><span class="ico">⚙</span><span class="chip on">Чат</span></div></div></div>` },
+      { id: 'B', title: 'Узкая колонка людей слева (как в Discord)', tag: 'Rail', pros: ['много людей помещается столбиком', 'аватары/цвета — быстро находите нужного'], cons: ['отнимает ширину у ленты'],
+        html: `<div class="wf chat row" style="align-items:stretch"><div class="col pad" style="width:46px;border-right:1px solid #ffffff22;align-items:center">${Array.from({ length: 6 }, (_, i) => `<div class="av" style="width:28px;height:28px;${i === 0 ? 'outline:2px solid #9147ff' : ''}"></div>`).join('')}<span class="ico">＋</span></div><div class="col fill"><div class="topbar" style="justify-content:center"><b>ЧАТ</b></div><div class="col fill scroll" style="padding:6px 0">${MSG(10)}</div><div class="pad col"><div class="b h" style="height:34px"></div></div></div></div>` },
+      { id: 'C', title: 'Общий чат + плавающее окно переписки', tag: 'Floating window', pros: ['общий чат всегда виден целиком', 'окно можно переставить'], cons: ['перекрывает часть ленты'],
+        html: `<div class="wf chat col" data-view><div class="topbar" style="justify-content:center"><b>ЧАТ ТРАНСЛЯЦИИ</b></div><div class="col fill scroll" style="padding:6px 0">${MSG(12)}</div><div class="pad col"><div class="b h" style="height:34px"></div><div class="row between"><span class="ico">⚙</span><button type="button" class="chip on" data-toggle>💬 Переписки</button></div></div><div class="pop" style="right:8px;bottom:84px;width:200px;background:#26262c;border-color:#ffffff33"><div class="row">${CH(['Группа', 'Маша', 'Вася'], 1)}</div>${MSG(4)}<div class="b h" style="height:26px;margin-top:4px"></div></div></div>` },
+      { id: 'D', title: 'Две ленты рядом: общий чат и переписка (в широком чате)', tag: 'Split view', pros: ['видите общий чат и личный разговор одновременно'], cons: ['нужен широкий чат (от ~600 px)'],
+        html: `<div class="wf chat row" style="max-width:480px;align-items:stretch"><div class="col fill" style="border-right:1px solid #ffffff22"><div class="topbar"><b>ЧАТ</b></div><div class="col fill scroll" style="padding:6px 0">${MSG(10)}</div></div><div class="col fill"><div class="topbar">${TABS(['Группа', 'Маша', 'Вася'], 1)}</div><div class="col fill scroll" style="padding:6px 0">${MSG(7)}</div><div class="pad"><div class="b h" style="height:28px"></div></div></div></div>` },
+    ] },
+  { id: 'chatset', icon: '🛠', title: 'Настройки чата', note: 'Стиль чата, смайлики и эмоуты (7TV, BTTV, FFZ, ивентовские наборы), упоминания и звук, что скрывать, раскладка страницы.',
+    variants: [
+      { id: 'A', title: 'Окно с вкладками (как сейчас)', tag: 'Tabs', pros: ['привычно'], cons: ['вкладка «Смайлики» длинная'],
+        html: `<div class="wf chat col"><div class="topbar"><b>Настройки чата</b></div><div class="pad">${TABS(['Вид', 'Смайлики', 'Упомин.', 'Скрыть', 'Страница'], 1, '', true)}</div><div class="pad col fill scroll"><div class="row" style="gap:8px"><div class="b" style="height:54px;flex:1"></div><div class="b" style="height:54px;flex:1"></div></div>${SW(3, [0])}${L(3)}</div></div>` },
+      { id: 'B', title: 'Аккордеон: разделы раскрываются списком', tag: 'Accordion', pros: ['нет вкладок — всё в одном скролле', 'узкий чат не мешает'], cons: ['длинный список'],
+        html: `<div class="wf chat col"><div class="topbar"><b>Настройки чата</b></div><div class="pad fill scroll">${['Вид', 'Смайлики и эмоуты', 'Упоминания', 'Скрыть', 'Страница'].map((x, i) => `<div class="acc ${i === 1 ? 'open' : ''}" style="border-color:#ffffff22"><button type="button" class="acc-h"><span class="ico">▢</span><div class="l m" style="width:40%;margin:0"></div></button><div class="acc-b col">${SW(2, [0])}<div class="row wrap">${CH(['7TV', 'BTTV', 'FFZ', '🎃', '🐣', '🎄'], 0)}</div></div></div>`).join('')}</div></div>` },
+      { id: 'C', title: 'Боковой ящик с поиском по настройкам', tag: 'Drawer + search', pros: ['чат остаётся виден слева и сразу меняется', 'поиск находит любую настройку'], cons: ['сужает чат'],
+        html: `<div class="wf chat" data-view><div class="col" style="padding:6px 0">${MSG(14)}</div><div class="drawer col scroll" style="width:70%;background:#222228;border-color:#ffffff33"><div class="b h row" style="height:28px;padding:0 10px">🔍<div class="l m" style="flex:1;margin:0"></div></div>${TABS(['Вид', 'Смайлики', 'Ещё'], 1, 'line')}${SW(4, [1])}${L(3)}</div><div class="fab" data-toggle style="background:#9147ff">⚙</div></div>` },
+    ] },
+  { id: 'pbtn', icon: '▶', title: 'Кнопки раскладки в плеере трансляции', note: 'Как переключать «удобную раскладку», сторону чата, ширину и «чат выше».',
+    variants: [
+      { id: 'A', title: 'Две иконки рядом с «Настройками» (как сейчас)', tag: 'Player buttons', pros: ['в одно касание'], cons: ['засоряют панель плеера'],
+        html: `<div class="wf player col"><div class="b" style="margin:8px;height:150px"></div><div class="row pad between"><div class="row"><span class="ico">⏸</span><span class="ico">🔊</span><span class="chip">● Эфир</span></div><div class="row"><span class="ico" style="outline:1px solid var(--acc)">⇄</span><span class="ico" style="outline:1px solid var(--acc)">▭▮</span><span class="ico">⚙</span><span class="ico">⛶</span></div></div></div>` },
+      { id: 'B', title: 'Одна иконка → меню раскладки', tag: 'Menu button', pros: ['панель плеера чистая', 'в меню: вкл/выкл, сторона, ширина S·M·L, «чат выше»'], cons: ['два клика вместо одного'],
+        html: `<div class="wf player col" data-view><div class="b" style="margin:8px;height:150px"></div><div class="row pad between"><div class="row"><span class="ico">⏸</span><span class="ico">🔊</span></div><div class="row"><button type="button" class="ico" data-toggle>▭▮</button><span class="ico">⚙</span><span class="ico">⛶</span></div></div><div class="pop" style="right:34px;bottom:44px;width:170px;background:#24242b;border-color:#ffffff33"><div class="row between"><div class="l m" style="width:60%;margin:0"></div><div class="sw on"></div></div><div class="row">${CH(['◧ слева', 'справа ◨'], 1)}</div><div class="row">${CH(['S', 'M', 'L'], 1)}</div><div class="row between"><div class="l m" style="width:60%;margin:0"></div><div class="sw on"></div></div></div></div>` },
+      { id: 'C', title: 'Ручка на границе чата (иконки при наведении)', tag: 'Edge handle', pros: ['управление там, где чат', 'тянете границу — меняется ширина'], cons: ['надо знать, что ручка есть'],
+        html: `<div class="wf player row" data-view style="align-items:stretch"><div class="col fill pad"><div class="b" style="height:150px"></div>${L(2)}</div><div style="position:relative;width:10px;display:grid;place-items:center"><button type="button" class="tab" data-toggle style="writing-mode:vertical-rl;padding:10px 2px;background:#ffffff22">⋮</button></div><div class="col pad" style="width:34%;border-left:1px solid #ffffff22">${MSG(8)}</div><div class="pop" style="right:34%;top:60px;background:#24242b;border-color:#ffffff33"><div class="row"><span class="ico">⇄</span><span class="ico">▭▮</span><span class="ico">⬍</span></div></div></div>` },
+    ] },
+];
+
+/* ---------- состояние ---------- */
+const KEY = 'yfs_mockups_v1';
+let state = { current: 'popup', picks: {} };
+try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { /* без сохранения */ }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* без сохранения */ } };
+const $ = (s, r = document) => r.querySelector(s);
+
+function renderNav() {
+  $('#windows').replaceChildren(...WINDOWS.map((w) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.role = 'tab';
+    b.setAttribute('aria-selected', String(w.id === state.current));
+    b.textContent = `${w.icon} ${w.title}`;
+    if (state.picks[w.id]) { const p = document.createElement('span'); p.className = 'pick'; p.textContent = state.picks[w.id]; b.append(p); }
+    b.addEventListener('click', () => { state.current = w.id; save(); render(); scrollTo({ top: 0 }); });
+    return b;
+  }));
+}
+
+function renderMain() {
+  const w = WINDOWS.find((x) => x.id === state.current) || WINDOWS[0];
+  const main = $('#main');
+  main.innerHTML = `<div class="win-head"><h2>${w.icon} ${w.title}</h2><p>${w.note}</p></div>`;
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  for (const v of w.variants) {
+    const chosen = state.picks[w.id] === v.id;
+    const card = document.createElement('section');
+    card.className = 'variant' + (chosen ? ' chosen' : '');
+    card.innerHTML = `<div class="vhead"><span class="letter">${v.id}</span><b>${v.title}</b><span class="tag">${v.tag}</span></div>${v.html}<ul class="pc">${v.pros.map((x) => `<li>${x}</li>`).join('')}${v.cons.map((x) => `<li class="no">${x}</li>`).join('')}</ul><button type="button" class="choose">${chosen ? '✓ Выбрано' : 'Выбрать этот вариант'}</button>`;
+    $('.choose', card).addEventListener('click', () => { state.picks[w.id] = chosen ? undefined : v.id; if (!state.picks[w.id]) delete state.picks[w.id]; save(); render(); });
+    grid.append(card);
+  }
+  main.append(grid);
+}
+
+function renderSummary() {
+  const lines = WINDOWS.map((w) => { const id = state.picks[w.id]; const v = id && w.variants.find((x) => x.id === id); return `${w.title}: ${v ? `${id} — ${v.title}` : '— (не выбрано)'}`; });
+  $('#summary').value = lines.join('\n');
+  const n = Object.keys(state.picks).length;
+  $('#done').textContent = `Выбрано ${n} из ${WINDOWS.length}`;
+}
+
+function render() { renderNav(); renderMain(); renderSummary(); }
+
+/* ---------- живые каркасы ---------- */
+document.addEventListener('click', (e) => {
+  const wf = e.target.closest('.wf');
+  if (!wf) return;
+  const tab = e.target.closest('.tab, .it');
+  if (tab && tab.parentElement) {
+    if (tab.hasAttribute('data-toggle') || tab.hasAttribute('data-go') || tab.hasAttribute('data-toggle-sibling')) { /* ниже */ } else {
+      for (const t of tab.parentElement.children) t.classList.remove('on');
+      tab.classList.add('on');
+    }
+  }
+  const tg = e.target.closest('[data-toggle]');
+  if (tg) { (tg.closest('[data-view]') || wf).classList.toggle('open'); const sw = tg.querySelector('.sw'); if (sw) sw.classList.toggle('on'); }
+  const ts = e.target.closest('[data-toggle-sibling]');
+  if (ts) { const sheet = wf.querySelector('.sheet'); if (sheet) sheet.style.transform = sheet.style.transform === 'none' ? 'translateY(105%)' : 'none'; }
+  const go = e.target.closest('[data-go]');
+  if (go) { wf.querySelectorAll('[data-pane]').forEach((p) => p.classList.toggle('show', p.dataset.pane === go.dataset.go)); }
+  const ah = e.target.closest('.acc-h');
+  if (ah) ah.parentElement.classList.toggle('open');
+  const sw = e.target.closest('.sw');
+  if (sw) sw.classList.toggle('on');
+  const chip = e.target.closest('.chip');
+  if (chip && !chip.hasAttribute('data-toggle') && !chip.closest('.tabs')) chip.classList.toggle('on');
+});
+
+$('#copy').addEventListener('click', async () => {
+  const text = `Макеты окон — мой выбор:\n${$('#summary').value}`;
+  try { await navigator.clipboard.writeText(text); $('#copy').textContent = 'Скопировано ✓'; } catch { $('#summary').select(); $('#copy').textContent = 'Выделено — нажмите Ctrl+C'; }
+  setTimeout(() => ($('#copy').textContent = 'Скопировать выбор'), 2200);
+});
+$('#reset').addEventListener('click', () => { state.picks = {}; save(); render(); });
+render();
+</script>
+</body>
+</html>

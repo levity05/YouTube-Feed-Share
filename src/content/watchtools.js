@@ -1,7 +1,8 @@
 /*
  * Текст видео и AI-сводка на обычной странице ролика youtube.com.
  *
- * Под названием ролика — две кнопки: «📝 Текст видео» и «✨ Краткая сводка».
+ * Под названием ролика — кнопки: «📝 Текст видео», «✨ Краткая сводка», «🎧 Аудио-режим», «⚡ СДВГ-режим»,
+ * а у музыкальных роликов ещё «🎵 Где послушать» — меню с поиском этого трека на Spotify, Apple Music и других площадках.
  * Они (и такие же кнопки в popup расширения) открывают справа поверх страницы
  * ту же панель, что в просмотрщике (viewer/textpanel.js): текст с тайм-кодами и без,
  * копирование, .txt, клик по времени — перемотка; сводка Gemini с кэшем.
@@ -17,7 +18,10 @@
   const P = YFS.textPanel;
   const tr = (k, p) => YFS.i18n.t(k, p);
 
+  const M = YFS.music;
   let bar = null; // кнопки под названием ролика
+  let musicState = { id: '', show: false, t: null }; // похоже ли открытое видео на трек
+  let menuOff = null; // снять обработчики открытого меню площадок
   let overlay = null; // { host, root, slot, toast }
   let css = '';
 
@@ -95,14 +99,15 @@
   const aiProgress = new Map(); // reqId → onProgress
   let aiSeq = 0;
 
-  async function summarizeViaBackground(args) {
+  /** Любой AI-запрос через фоновый скрипт: type — yfs:ai-summarize | yfs:ai-focus | yfs:ai-repair. */
+  async function aiViaBackground(type, args) {
     const { onProgress, signal, ...rest } = args;
     const reqId = `ai${Date.now()}-${++aiSeq}`;
     if (onProgress) aiProgress.set(reqId, onProgress);
     const cancel = () => send({ type: 'yfs:ai-cancel', reqId }).catch(() => {});
     if (signal) signal.addEventListener('abort', cancel);
     try {
-      const res = await send({ type: 'yfs:ai-summarize', reqId, args: rest });
+      const res = await send({ type, reqId, args: rest });
       if (!res || !res.ok) throw Object.assign(new Error((res && res.message) || 'failed'), { code: (res && res.code) || 'ai-failed', tried: (res && res.tried) || [] });
       return res.out;
     } finally {
@@ -110,6 +115,8 @@
       if (signal) signal.removeEventListener('abort', cancel);
     }
   }
+
+  const summarizeViaBackground = (args) => aiViaBackground('yfs:ai-summarize', args);
 
   async function listModelsViaBackground(key) {
     const res = await send({ type: 'yfs:ai-models', key });
@@ -165,6 +172,13 @@
     .bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; font: 500 14px/1 Roboto, Arial, sans-serif; color: var(--text); }
     .bar.floating { position: fixed; right: 16px; bottom: 16px; z-index: 2100; margin: 0; }
     .bar.floating .pill { box-shadow: 0 2px 12px #0006; background: var(--bg-elev); }
+    .pill[hidden] { display: none; }
+    .menu { position: fixed; z-index: 2300; min-width: 230px; max-width: 320px; max-height: calc(100vh - 16px); overflow-y: auto; padding: 6px; border: 1px solid var(--border); border-radius: 12px;
+      background: var(--bg-elev); color: var(--text); box-shadow: 0 8px 32px #0008; font: 14px/1.3 Roboto, Arial, sans-serif; }
+    .menu-title { margin-bottom: 4px; padding: 6px 10px 8px; border-bottom: 1px solid var(--border); color: var(--text-2); font-size: 12px; overflow-wrap: anywhere; }
+    .menu a, .menu .mi { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit;
+      text-align: left; text-decoration: none; cursor: pointer; }
+    .menu a:hover, .menu .mi:hover { background: var(--hover); }
   `;
 
   const OVERLAY_CSS = `
@@ -251,6 +265,7 @@
     await i18nReady; // подписи панели — на выбранном языке, даже если скрипт подключили только что
     const o = await ensureOverlay();
     applyTheme(o.host);
+    if (YFS.focusMode) YFS.focusMode.closePanel(); // панели справа не накладываются друг на друга
     P.open({ video, frame: null, container: o.slot, tab: tab === 'summary' ? 'summary' : 'text' });
     return true;
   }
@@ -273,12 +288,93 @@
     const text = el('button', { className: 'pill', type: 'button', textContent: tr('watch.text'), title: tr('watch.hint') });
     const sum = el('button', { className: 'pill', type: 'button', textContent: tr('watch.summary'), title: tr('watch.hint') });
     const audio = el('button', { className: 'pill', type: 'button', textContent: tr('watch.audio'), title: tr('audio.hint') });
+    const focus = el('button', { className: 'pill', type: 'button', textContent: tr('watch.focus'), title: tr('focus.hint') });
+    const music = el('button', { className: 'pill music', type: 'button', textContent: tr('watch.music'), title: tr('watch.musicHint'), hidden: true });
+    music.addEventListener('click', () => toggleMusicMenu(root, music));
     text.addEventListener('click', () => toggle('text'));
     sum.addEventListener('click', () => toggle('summary'));
     audio.addEventListener('click', () => YFS.audioMode && YFS.audioMode.toggle());
-    root.append(el('style', { textContent: BASE_CSS + BAR_CSS }), el('div', { className: floating ? 'bar floating' : 'bar' }, text, sum, audio));
+    focus.addEventListener('click', () => YFS.focusMode && YFS.focusMode.togglePanel());
+    root.append(el('style', { textContent: BASE_CSS + BAR_CSS }), el('div', { className: floating ? 'bar floating' : 'bar' }, text, sum, audio, focus, music));
     applyTheme(host);
+    music.hidden = !(musicState.show && musicState.id === videoIdFromUrl());
     return host;
+  }
+
+  // ---------- 🎵 меню «Где послушать» ----------
+
+  function closeMusicMenu(root) {
+    const old = root && root.querySelector('.menu');
+    if (old) old.remove();
+    if (menuOff) menuOff();
+    menuOff = null;
+  }
+
+  function toggleMusicMenu(root, btn) {
+    if (root.querySelector('.menu')) return closeMusicMenu(root);
+    const t = musicState.t;
+    if (!t || !M) return;
+    const menu = el('div', { className: 'menu', role: 'menu' }, el('div', { className: 'menu-title' }, t.artist && t.track ? `${t.artist} — ${t.track}` : t.query));
+    for (const p of M.platformLinks(t.query)) menu.append(el('a', { href: p.url, target: '_blank', rel: 'noopener noreferrer', role: 'menuitem', textContent: p.name }));
+    const copy = el('button', { className: 'mi', type: 'button', role: 'menuitem', textContent: tr('audio.copyTrack') });
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(t.artist && t.track ? `${t.artist} — ${t.track}` : t.query);
+        copy.textContent = tr('text.copied');
+      } catch {
+        /* без буфера обмена */
+      }
+    });
+    const audio = el('button', { className: 'mi', type: 'button', role: 'menuitem', textContent: tr('watch.audio') });
+    audio.addEventListener('click', () => {
+      closeMusicMenu(root);
+      if (YFS.audioMode) YFS.audioMode.toggle(true);
+    });
+    menu.append(copy, audio);
+    const r = btn.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(Math.round(r.left), window.innerWidth - 330))}px`;
+    menu.style.top = `${Math.round(r.bottom + 6)}px`;
+    root.append(menu);
+    // Внизу экрана меню не помещается — открываем его над кнопкой.
+    const h = menu.getBoundingClientRect().height;
+    if (r.bottom + 6 + h > window.innerHeight - 8) menu.style.top = `${Math.max(8, Math.round(r.top - h - 6))}px`;
+    const outside = (ev) => {
+      if (!ev.composedPath().includes(root.host)) closeMusicMenu(root);
+    };
+    const onKey = (ev) => ev.key === 'Escape' && closeMusicMenu(root);
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('scroll', outside, { once: true, passive: true });
+    menuOff = () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }
+
+  /** Похоже ли открытое видео на трек: для таких роликов на странице появляется кнопка «🎵 Где послушать». */
+  async function checkMusic() {
+    const id = videoIdFromUrl();
+    if (!id || !M || musicState.id === id || location.pathname !== '/watch') return;
+    musicState = { id, show: false, t: null };
+    const v = currentVideo();
+    const info = (YFS.askPage && (await YFS.askPage('music', id, 3000))) || {};
+    if (videoIdFromUrl() !== id) return;
+    const title = info.title || (v && v.title) || '';
+    const channel = info.author || (v && v.channel) || '';
+    if (!title) {
+      musicState.id = ''; // заголовка ещё нет — проверим при следующем проходе
+      return;
+    }
+    const score = M.musicScore({ title, channel, durationSec: info.lengthSec, musicVideoType: info.musicVideoType, category: info.category });
+    musicState = { id, show: info.category === 'Music' || score >= 0.35, t: M.parseTrack(title, channel) };
+    refreshMusicButton();
+  }
+
+  function refreshMusicButton() {
+    const b = bar && bar.shadowRoot && bar.shadowRoot.querySelector('.music');
+    if (!b) return;
+    b.hidden = !(musicState.show && musicState.id === videoIdFromUrl());
+    if (b.hidden) closeMusicMenu(bar.shadowRoot);
   }
 
   function toggle(tab) {
@@ -290,10 +386,12 @@
   function ensureBar() {
     const onWatch = location.pathname === '/watch' && !!videoIdFromUrl();
     if (!onWatch) {
-      if (bar) bar.remove(), (bar = null);
+      if (bar) closeMusicMenu(bar.shadowRoot), bar.remove(), (bar = null);
       missing = 0;
       return;
     }
+    checkMusic();
+    refreshMusicButton();
     const anchor = document.querySelector('ytd-watch-metadata #above-the-fold #middle-row');
     if (anchor) {
       if (bar && bar.isConnected && bar.nextElementSibling === anchor && !bar.shadowRoot.querySelector('.floating')) return applyTheme(bar);
@@ -309,7 +407,22 @@
   }
 
   // Общее для resume.js и audiomode.js (тот же ролик, тот же <video>, та же проверка «расширение живо»).
-  YFS.watch = { VERSION, alive, currentVideo, activeVideoEl, videoIdFromUrl, BASE_CSS, closePanel: () => P.isOpen && P.hide() };
+  YFS.watch = {
+    VERSION,
+    alive,
+    currentVideo,
+    activeVideoEl,
+    videoIdFromUrl,
+    BASE_CSS,
+    store,
+    ai: aiViaBackground,
+    openSettings: (hash) => send({ type: 'yfs:open-options', hash: hash || '' }).catch(() => {}),
+    closePanel: () => P.isOpen && P.hide(),
+    closeAll: () => {
+      if (P.isOpen) P.hide();
+      if (YFS.focusMode) YFS.focusMode.closePanel();
+    },
+  };
 
   // ---------- popup расширения ----------
 
@@ -321,6 +434,14 @@
     } else if (msg.type === 'yfs:watch-info') {
       const v = currentVideo();
       sendResponse(v ? { ok: true, video: v } : { ok: false });
+    } else if (msg.type === 'yfs:watch-open' && msg.tab === 'focus') {
+      i18nReady.then(() => {
+        if (!currentVideo() || !YFS.focusMode) return sendResponse({ ok: false });
+        if (P.isOpen) P.hide();
+        YFS.focusMode.togglePanel();
+        sendResponse({ ok: true });
+      });
+      return true;
     } else if (msg.type === 'yfs:watch-open') {
       open(msg.tab).then((ok) => sendResponse({ ok }), (err) => sendResponse({ ok: false, error: err.message }));
       return true;
@@ -334,11 +455,11 @@
   };
   document.addEventListener('yt-navigate-finish', onNavigate);
   window.addEventListener('popstate', onNavigate);
-  // Тема и перестройка разметки YouTube: редкая проверка, только на странице ролика.
-  const timer = setInterval(() => {
+  // Тема и перестройка разметки YouTube: редкая проверка (общий таймер loop.js; в фоновой вкладке не тикает).
+  const stopLoop = YFS.loop.every(1500, () => {
     if (!alive()) {
       // Расширение обновили — эта копия устарела: убираем свои кнопки и больше ничего не делаем.
-      clearInterval(timer);
+      stopLoop();
       document.removeEventListener('yt-navigate-finish', onNavigate);
       window.removeEventListener('popstate', onNavigate);
       if (bar) bar.remove(), (bar = null);
@@ -347,13 +468,21 @@
     }
     if (location.pathname === '/watch') ensureBar();
     if (overlay && P.isOpen) applyTheme(overlay.host);
-  }, 1500);
+  });
   const i18nReady = YFS.i18n.init({ applyToPage: false }).catch(() => {});
   i18nReady.then(ensureBar);
+  // Язык сменили в настройках: новый словарь, потом событие yfs:lang-change — каждая панель на странице
+  // (аудио-режим, СДВГ, фильтр, группы) пересобирается сама, без перезагрузки вкладки.
   YFS.i18n.onChange(() =>
     YFS.i18n.init({ applyToPage: false }).then(() => {
-      if (bar) bar.remove(), (bar = null);
+      if (bar) closeMusicMenu(bar.shadowRoot), bar.remove(), (bar = null);
       ensureBar();
+      if (P.isOpen && overlay) {
+        const tab = overlay.root.querySelector('.tp-tab.active[data-tp-tab="summary"]') ? 'summary' : 'text';
+        P.hide();
+        open(tab);
+      }
+      document.dispatchEvent(new CustomEvent('yfs:lang-change'));
     })
   );
 })();

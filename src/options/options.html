@@ -10,10 +10,10 @@
   </head>
   <body>
     <div class="layout">
-      <!-- Меню разделов: пункты собираются из заголовков секций (options.js) -->
+      <!-- Вкладки разделов: пункты собираются из заголовков секций (options.js) -->
       <nav class="side" data-i18n-aria="options.nav">
         <div class="brand"><img src="../../icons/icon32.png" alt="" width="22" height="22" /> Feed Share</div>
-        <ul id="nav"></ul>
+        <ul id="nav" role="tablist"></ul>
       </nav>
 
       <main>
@@ -44,6 +44,149 @@
             <select id="model"></select>
           </label>
           <p class="hint" data-i18n="options.modelHint"></p>
+
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="options.repair"></span>
+              <span class="opt-sub" data-i18n="options.repairHint"></span>
+            </span>
+            <input type="checkbox" id="repair" class="toggle" />
+          </label>
+          <p id="recipes" class="hint"></p>
+          <button type="button" id="forgetRecipes" data-i18n="options.forgetRecipes"></button>
+        </section>
+
+        <section class="card" id="focus">
+          <h2 data-i18n="options.focus"></h2>
+          <p class="hint" data-i18n="options.focusHint"></p>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="focus.enabled"></span>
+              <span class="opt-sub" data-i18n="focus.hint"></span>
+            </span>
+            <input type="checkbox" id="focusOn" class="toggle" />
+          </label>
+          <div class="opt stack">
+            <span class="opt-text"><span class="opt-title" data-i18n="focus.style"></span></span>
+            <div class="seg" id="focusStyle" role="radiogroup" data-i18n-aria="focus.style"></div>
+          </div>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="focus.kind"></span>
+              <span class="opt-sub" data-i18n="focus.kindHint"></span>
+            </span>
+            <select id="focusKind"></select>
+          </label>
+          <div class="opt stack">
+            <span class="opt-text"><span class="opt-title" data-i18n="focus.rate"></span></span>
+            <div class="seg compact" id="focusRate" role="radiogroup" data-i18n-aria="focus.rate"></div>
+          </div>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="focus.optAuto"></span>
+              <span class="opt-sub" data-i18n="focus.optAutoHint"></span>
+            </span>
+            <input type="checkbox" id="focusAuto" class="toggle" />
+          </label>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="focus.optToasts"></span>
+              <span class="opt-sub" data-i18n="focus.optToastsHint"></span>
+            </span>
+            <input type="checkbox" id="focusToasts" class="toggle" />
+          </label>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="focus.optStrip"></span>
+              <span class="opt-sub" data-i18n="focus.optStripHint"></span>
+            </span>
+            <input type="checkbox" id="focusStrip" class="toggle" />
+          </label>
+        </section>
+
+        <section class="card" id="feed">
+          <h2 data-i18n="options.feed"></h2>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="filter.enabled"></span>
+              <span class="opt-sub" data-i18n="options.feedHint"></span>
+            </span>
+            <input type="checkbox" id="feedOn" class="toggle" />
+          </label>
+          <p id="feedSummary" class="hint"></p>
+          <button type="button" id="feedReset" data-i18n="options.feedReset"></button>
+        </section>
+
+        <section class="card" id="audio">
+          <h2 data-i18n="options.audio"></h2>
+          <p class="hint" data-i18n="options.audioHint"></p>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="options.lyrics"></span>
+              <span class="opt-sub" data-i18n="options.lyricsHint"></span>
+            </span>
+            <input type="checkbox" id="lyricsOn" class="toggle" />
+          </label>
+          <button type="button" id="clearLyrics" data-i18n="options.clearLyrics"></button>
+        </section>
+
+        <section class="card" id="live">
+          <h2 data-i18n="options.live"></h2>
+          <p class="hint" data-i18n="options.liveHint"></p>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.layout"></span>
+              <span class="opt-sub" data-i18n="live.layoutHint"></span>
+            </span>
+            <input type="checkbox" id="liveLayout" class="toggle" />
+          </label>
+          <div class="opt stack">
+            <span class="opt-text"><span class="opt-title" data-i18n="live.chatWidth"></span><span class="opt-sub" id="liveWidthOut"></span></span>
+            <input type="range" id="liveWidth" min="300" max="900" step="10" />
+          </div>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.fullHeight"></span>
+            </span>
+            <input type="checkbox" id="liveFull" class="toggle" />
+          </label>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.hideRelated"></span>
+            </span>
+            <input type="checkbox" id="liveRelated" class="toggle" />
+          </label>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.nameColors"></span>
+            </span>
+            <input type="checkbox" id="liveNames" class="toggle" />
+          </label>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.allMessages"></span>
+              <span class="opt-sub" data-i18n="live.allMessagesHint"></span>
+            </span>
+            <input type="checkbox" id="liveAll" class="toggle" />
+          </label>
+          <div class="opt stack">
+            <span class="opt-text"><span class="opt-title" data-i18n="live.theme"></span></span>
+            <div class="seg compact" id="liveTheme" role="radiogroup" data-i18n-aria="live.theme"></div>
+          </div>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.quickReply"></span>
+              <span class="opt-sub" data-i18n="live.quickReplyHint"></span>
+            </span>
+            <input type="checkbox" id="liveReply" class="toggle" />
+          </label>
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title" data-i18n="live.sound"></span>
+              <span class="opt-sub" data-i18n="live.soundHint"></span>
+            </span>
+            <input type="checkbox" id="liveSound" class="toggle" />
+          </label>
         </section>
 
         <section class="card" id="prompts">
@@ -75,11 +218,13 @@
 
         <section class="card" id="shorts">
           <h2 data-i18n="options.shorts"></h2>
-          <label class="switch-row">
-            <span><span data-i18n="popup.autoscroll"></span> <span class="pro-tag">PRO</span></span>
-            <input type="checkbox" id="autoscroll" class="switch" />
+          <label class="opt">
+            <span class="opt-text">
+              <span class="opt-title"><span data-i18n="popup.autoscroll"></span> <span class="pro-tag">PRO</span></span>
+              <span id="autoscrollHint" class="opt-sub"></span>
+            </span>
+            <input type="checkbox" id="autoscroll" class="toggle" />
           </label>
-          <p id="autoscrollHint" class="hint"></p>
           <p class="hint" data-i18n="options.shortsHint"></p>
           <button type="button" id="openShorts" data-i18n="options.openShorts"></button>
         </section>
@@ -104,6 +249,7 @@
             <button type="button" id="openViewer" data-i18n="popup.viewer"></button>
             <button type="button" id="clearResume" data-i18n="options.clearResume"></button>
             <button type="button" id="clearAiCache" data-i18n="options.clearCache"></button>
+            <button type="button" id="clearTaste" data-i18n="options.clearTaste"></button>
           </div>
         </section>
       </main>
@@ -113,6 +259,7 @@
     <script src="../shared/i18n.js"></script>
     <script src="../locales/en.js"></script>
     <script src="../shared/ai.js"></script>
+    <script src="../shared/liverules.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

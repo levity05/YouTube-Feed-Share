@@ -13,11 +13,6 @@
       <button id="openOptions" class="icon-btn" type="button" data-i18n-title="popup.settings" data-i18n-aria="popup.settings">⚙</button>
     </header>
 
-    <nav class="tabs" role="tablist">
-      <button type="button" role="tab" data-tab="watch" id="tab-watch"><span aria-hidden="true">▶</span> <span data-i18n="popup.tabWatch"></span></button>
-      <button type="button" role="tab" data-tab="snapshot" id="tab-snapshot"><span aria-hidden="true">📦</span> <span data-i18n="popup.tabSnapshot"></span><span id="jobDot" class="dot" hidden></span></button>
-      <button type="button" role="tab" data-tab="shorts" id="tab-shorts"><span aria-hidden="true">⚡</span> <span data-i18n="popup.tabShorts"></span></button>
-    </nav>
 
     <!-- ▶ Смотреть: ролик во вкладке + продолжить просмотр -->
     <section id="pane-watch" class="pane" role="tabpanel" aria-labelledby="tab-watch">
@@ -28,6 +23,7 @@
           <button id="videoText" type="button" class="tile"><span class="tile-ico">📝</span><span data-i18n="popup.actText"></span></button>
           <button id="videoSummary" type="button" class="tile"><span class="tile-ico">✨</span><span data-i18n="popup.actSummary"></span></button>
           <button id="videoAudio" type="button" class="tile"><span class="tile-ico">🎧</span><span data-i18n="popup.actAudio"></span></button>
+          <button id="videoFocus" type="button" class="tile"><span class="tile-ico">⚡</span><span data-i18n="popup.actFocus"></span></button>
         </div>
         <p id="videoError" class="hint warn" hidden></p>
       </div>
@@ -148,11 +144,44 @@
       <button id="shortsSettings" type="button" class="wide" data-i18n="popup.shortsSettings"></button>
     </section>
 
+    <!-- 🎛 Лента: быстрые переключатели фильтра и вызов панелей на странице YouTube -->
+    <section id="pane-feed" class="pane" role="tabpanel" aria-labelledby="tab-feed" hidden>
+      <div class="card">
+        <label class="switch-row">
+          <span data-i18n="filter.enabled"></span>
+          <input type="checkbox" id="feedOn" class="switch" />
+        </label>
+        <p class="label" data-i18n="filter.hide"></p>
+        <div id="feedQuick" class="chips quick">
+          <button type="button" data-rule="hideShorts" data-i18n="filter.shorts"></button>
+          <button type="button" data-rule="hideLive" data-i18n="filter.live"></button>
+          <button type="button" data-rule="hideWatched" data-i18n="filter.watched"></button>
+          <button type="button" data-rule="onlyMusic" data-i18n="filter.onlyMusic"></button>
+        </div>
+      </div>
+      <div class="tiles">
+        <button id="feedPanel" type="button" class="tile"><span class="tile-ico">🎛</span><span data-i18n="popup.feedPanel"></span></button>
+        <button id="feedGroups" type="button" class="tile"><span class="tile-ico">🗂</span><span data-i18n="filter.groupShow"></span></button>
+        <button id="feedTaste" type="button" class="tile"><span class="tile-ico">⭐</span><span data-i18n="taste.title"></span></button>
+        <button id="feedMusic" type="button" class="tile"><span class="tile-ico">🔎</span><span data-i18n="filter.findMusic"></span></button>
+      </div>
+      <p id="feedHint" class="hint" data-i18n="popup.feedHint"></p>
+    </section>
+
     <p id="error" class="error" role="alert" hidden></p>
+
+    <!-- Нижняя навигация: разделы под рукой, как в мобильных приложениях -->
+    <nav class="tabs" role="tablist" data-i18n-aria="popup.nav">
+      <button type="button" role="tab" data-tab="watch" id="tab-watch"><span class="ti" aria-hidden="true">▶</span><span class="tl" data-i18n="popup.tabWatch"></span></button>
+      <button type="button" role="tab" data-tab="snapshot" id="tab-snapshot"><span class="ti" aria-hidden="true">📦</span><span class="tl" data-i18n="popup.tabSnapshot"></span><span id="jobDot" class="dot" hidden></span></button>
+      <button type="button" role="tab" data-tab="feed" id="tab-feed"><span class="ti" aria-hidden="true">🎛</span><span class="tl" data-i18n="popup.tabFeed"></span></button>
+      <button type="button" role="tab" data-tab="shorts" id="tab-shorts"><span class="ti" aria-hidden="true">⚡</span><span class="tl" data-i18n="popup.tabShorts"></span></button>
+    </nav>
 
     <script src="../shared/i18n.js"></script>
     <script src="../locales/en.js"></script>
     <script src="../shared/feed.js"></script>
+    <script src="../shared/feedrules.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

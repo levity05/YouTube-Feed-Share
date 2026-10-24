@@ -70,7 +70,8 @@ async function checkKey() {
 
 // ---------- пресеты сводки ----------
 //
-// Встроенные пресеты: текст можно править (yfs_ai.overrides[id]) и вернуть встроенный.
+// Встроенные пресеты: текст на языке интерфейса, правку можно сделать и вернуть встроенный
+// (yfs_ai.overridesByLang[язык][id] — правка действует только на этом языке).
 // Свои: yfs_ai.presets = [{ id, name, text }] — создать, скопировать, переименовать, удалить.
 // Основной пресет (yfs_ai.preset) выбран в панели сводки по умолчанию.
 
@@ -147,10 +148,8 @@ async function savePreset() {
   const s = await getAi();
   const text = $('prompt').value.trim();
   if (p.builtin) {
-    const overrides = { ...(s.overrides || {}) };
-    if (!text || text === AI.builtinPrompt(p.id, I18N.lang).trim()) delete overrides[p.id];
-    else overrides[p.id] = text;
-    await setAi({ overrides });
+    // Правка встроенного пресета хранится для текущего языка интерфейса (overridesByLang).
+    await setAi(AI.overridePatch(s, p.id, I18N.lang, text));
   } else {
     const name = $('presetName').value.trim() || presetName(p);
     await setAi({ presets: (s.presets || []).map((x) => (x.id === p.id ? { ...x, name, text: text || x.text } : x)) });
@@ -190,7 +189,7 @@ async function initPresets() {
   renderPresetEditor();
   await renderPresetList();
   $('promptHint').textContent = tr('ai.promptHint', { ph: '{language}' });
-  if (m) $('prompts').scrollIntoView();
+
 
   $('prompt').addEventListener('input', () => {
     P.dirty = true;
@@ -214,10 +213,7 @@ async function initPresets() {
   });
   $('resetPrompt').addEventListener('click', async () => {
     const p = selectedPreset();
-    const s2 = await getAi();
-    const overrides = { ...(s2.overrides || {}) };
-    delete overrides[p.id];
-    await setAi({ overrides });
+    await setAi(AI.overridePatch(await getAi(), p.id, I18N.lang, ''));
     await loadPresets();
     renderPresetEditor();
     await renderPresetList();
@@ -278,6 +274,10 @@ async function init() {
     await chrome.storage.local.remove('yfs_ai_cache');
     flashSaved();
   });
+  $('clearTaste').addEventListener('click', async () => {
+    await chrome.storage.local.remove(['yfs_taste_history', 'yfs_taste_meta', 'yfs_taste_fb', 'yfs_taste_pending']);
+    flashSaved();
+  });
   $('clearResume').addEventListener('click', async () => {
     await chrome.storage.local.remove('yfs_resume');
     flashSaved();
@@ -285,7 +285,175 @@ async function init() {
 
   await initShorts();
   await initShare();
+  await initRepair();
+  await initFocus();
+  await initFeed();
+  await initAudio();
+  await initLive();
   buildNav();
+}
+
+// ---------- 🧠 ремонт парсера с помощью ИИ ----------
+
+async function initRepair() {
+  const render = async () => {
+    const s = await getAi();
+    $('repair').checked = !!s.repair;
+    const { yfs_parser_recipes: list = [] } = await chrome.storage.local.get('yfs_parser_recipes');
+    $('recipes').textContent = list.length
+      ? tr('options.recipesList', { list: list.map((r) => `${r.renderer} (${new Date(r.learnedAt).toLocaleDateString(I18N.locale())})`).join(', ') })
+      : tr('options.recipesNone');
+    $('forgetRecipes').hidden = !list.length;
+  };
+  await render();
+  $('repair').addEventListener('change', () => setAi({ repair: $('repair').checked }));
+  $('forgetRecipes').addEventListener('click', async () => {
+    await chrome.storage.local.remove('yfs_parser_recipes');
+    flashSaved();
+    render();
+  });
+}
+
+// ---------- ⚡ СДВГ-режим: то же, что в панели под роликом (yfs_focus), но в одном месте ----------
+
+async function initFocus() {
+  const KEY = 'yfs_focus';
+  const STYLES = ['ads', 'gentle', 'normal', 'hard', 'highlights'];
+  const KINDS = ['auto', 'gaming', 'lecture', 'podcast', 'review', 'news', 'vlog', 'stream'];
+  const RATES = [1.5, 1.75, 2];
+  const read = async () => {
+    const { [KEY]: p = {} } = await chrome.storage.local.get(KEY);
+    return {
+      style: STYLES.includes(p.style) ? p.style : 'normal',
+      kind: KINDS.includes(p.kind) ? p.kind : 'auto',
+      model: typeof p.model === 'string' ? p.model : '',
+      rate: RATES.includes(p.rate) ? p.rate : 1.75,
+      on: p.on !== false,
+      auto: p.auto === true,
+      toasts: p.toasts !== false,
+      strip: p.strip !== false,
+    };
+  };
+  const write = async (patch) => {
+    await chrome.storage.local.set({ [KEY]: { ...(await read()), ...patch } });
+    flashSaved();
+  };
+  const radio = (box, items, current, onPick) => {
+    box.replaceChildren();
+    for (const it of items) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(it.value === current));
+      const t = document.createElement('b');
+      t.textContent = it.label;
+      b.append(t);
+      if (it.hint) {
+        const h = document.createElement('small');
+        h.textContent = it.hint;
+        b.append(h);
+      }
+      b.addEventListener('click', () => onPick(it.value));
+      box.append(b);
+    }
+  };
+  const render = async () => {
+    const p = await read();
+    $('focusOn').checked = p.on;
+    $('focusAuto').checked = p.auto;
+    $('focusToasts').checked = p.toasts;
+    $('focusStrip').checked = p.strip;
+    radio($('focusStyle'), STYLES.map((v) => ({ value: v, label: tr('focus.style.' + v), hint: tr('focus.style.' + v + 'Hint') })), p.style, (v) => write({ style: v }));
+    $('focusKind').replaceChildren(...KINDS.map((k) => option(k, tr('focus.kind.' + k), p.kind === k)));
+    radio($('focusRate'), RATES.map((v) => ({ value: v, label: v + '×' })), p.rate, (v) => write({ rate: v }));
+  };
+  await render();
+  for (const [id, key] of [['focusOn', 'on'], ['focusAuto', 'auto'], ['focusToasts', 'toasts'], ['focusStrip', 'strip']]) {
+    $(id).addEventListener('change', () => write({ [key]: $(id).checked }));
+  }
+  $('focusKind').addEventListener('change', () => write({ kind: $('focusKind').value }));
+  chrome.storage.onChanged.addListener((c, area) => area === 'local' && c[KEY] && render());
+}
+
+// ---------- 🎧 аудио-режим и музыка ----------
+
+async function initAudio() {
+  const KEY = 'yfs_audio_opts';
+  const read = async () => (await chrome.storage.local.get(KEY))[KEY] || {};
+  $('lyricsOn').checked = (await read()).lyrics !== false;
+  $('lyricsOn').addEventListener('change', async () => {
+    await chrome.storage.local.set({ [KEY]: { ...(await read()), lyrics: $('lyricsOn').checked } });
+    flashSaved();
+  });
+  $('clearLyrics').addEventListener('click', async () => {
+    await chrome.storage.local.remove('yfs_lyrics_cache');
+    flashSaved();
+  });
+}
+
+// ---------- 📡 трансляции: раскладка страницы и главное из настроек чата (остальное — ⚙ в самом чате) ----------
+
+async function initLive() {
+  const L = YFS.liverules;
+  const KEY = 'yfs_live';
+  const read = async () => L.normalize((await chrome.storage.local.get(KEY))[KEY]);
+  const write = async (patch) => {
+    await chrome.storage.local.set({ [KEY]: L.normalize({ ...(await read()), ...patch }) });
+    flashSaved();
+  };
+  const boxes = [['liveLayout', 'layout'], ['liveFull', 'chatFullHeight'], ['liveRelated', 'hideRelated'], ['liveNames', 'nameColors'], ['liveAll', 'allMessages'], ['liveReply', 'quickReply'], ['liveSound', 'mentionSound']];
+  const render = async () => {
+    const s = await read();
+    for (const [id, key] of boxes) $(id).checked = !!s[key];
+    $('liveTheme').replaceChildren(
+      ...L.THEMES.map((th) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(s.theme === th));
+        b.textContent = tr('live.theme.' + th);
+        b.addEventListener('click', () => write({ theme: th }));
+        return b;
+      })
+    );
+    $('liveWidth').value = String(s.chatWidth);
+    $('liveWidthOut').textContent = `${s.chatWidth} px`;
+  };
+  await render();
+  for (const [id, key] of boxes) $(id).addEventListener('change', () => write({ [key]: $(id).checked }));
+  $('liveWidth').addEventListener('input', () => ($('liveWidthOut').textContent = `${$('liveWidth').value} px`));
+  $('liveWidth').addEventListener('change', () => write({ chatWidth: Number($('liveWidth').value) }));
+  chrome.storage.onChanged.addListener((c, area) => area === 'local' && c[KEY] && render());
+}
+
+// ---------- 🎛 фильтр ленты (правила — в панели на самом YouTube) ----------
+
+async function initFeed() {
+  const KEY = 'yfs_feedfilter';
+  const render = async () => {
+    const { [KEY]: f = {} } = await chrome.storage.local.get(KEY);
+    $('feedOn').checked = !!f.enabled;
+    const parts = [];
+    if (f.hideShorts) parts.push(tr('filter.shorts'));
+    if (f.hideLive) parts.push(tr('filter.live'));
+    if (f.minMin || f.maxMin) parts.push(`${tr('filter.duration')}: ${f.minMin || 0}–${f.maxMin || '∞'}`);
+    const blocked = Object.keys(f.blockChannels || {}).length;
+    if (blocked) parts.push(tr('options.feedBlocked', { n: blocked }));
+    if ((f.blockWords || []).length) parts.push(tr('filter.blockWords') + ': ' + f.blockWords.join(', '));
+    if (f.onlyMusic) parts.push(tr('filter.onlyMusic'));
+    $('feedSummary').textContent = parts.join(' · ');
+  };
+  await render();
+  $('feedOn').addEventListener('change', async () => {
+    const { [KEY]: f = {} } = await chrome.storage.local.get(KEY);
+    await chrome.storage.local.set({ [KEY]: { ...f, enabled: $('feedOn').checked } });
+    flashSaved();
+  });
+  $('feedReset').addEventListener('click', async () => {
+    await chrome.storage.local.remove(KEY);
+    flashSaved();
+    render();
+  });
 }
 
 // ---------- ⚡ Shorts: автолистание (PRO) ----------
@@ -332,9 +500,13 @@ async function initShare() {
   $('viewerUrl').addEventListener('change', save('viewerUrl'));
 }
 
-// ---------- меню разделов: из заголовков секций, подсветка текущей при прокрутке ----------
+// ---------- вкладки разделов сверху: на экране один раздел ----------
+//
+// Вкладки собираются из заголовков секций. Открытый раздел помнится (localStorage), а ссылки вида
+// options.html#ai, #prompt=<id> (из панели сводки) открывают нужный раздел сразу.
 
-const NAV_ICONS = { general: '🌐', ai: '✨', prompts: '📝', shorts: '⚡', share: '🔗', data: '🗂' };
+const NAV_ICONS = { general: '🌐', ai: '✨', focus: '⚡', feed: '🎛', audio: '🎧', live: '📡', prompts: '📝', shorts: '📱', share: '🔗', data: '🗂' };
+const LAST_SECTION = 'yfs_options_section';
 
 function buildNav() {
   const nav = $('nav');
@@ -343,24 +515,72 @@ function buildNav() {
   for (const s of sections) {
     const a = document.createElement('a');
     a.href = '#' + s.id;
-    // Одинаковый вид пунктов: значок раздела + заголовок без его собственного эмодзи.
-    const title = s.querySelector('h2').textContent.replace(/^[^\p{L}\p{N}]+/u, '');
-    a.textContent = `${NAV_ICONS[s.id] || '•'}  ${title}`;
+    a.setAttribute('role', 'tab');
+    // Одинаковый вид вкладок и заголовков: значок раздела + название без его собственного эмодзи.
+    const h2 = s.querySelector('h2');
+    const title = h2.textContent.replace(/^[^\p{L}\p{N}]+/u, '');
+    const mark = (cls) => {
+      const i = document.createElement('span');
+      i.className = cls;
+      i.textContent = NAV_ICONS[s.id] || '•';
+      return i;
+    };
+    h2.replaceChildren(mark('ico'), title);
+    a.append(mark('ico'), title);
     const li = document.createElement('li');
     li.append(a);
     nav.append(li);
     links.set(s, a);
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      show(s.id, true);
+    });
   }
-  const mark = (s) => links.forEach((a, sec) => a.classList.toggle('active', sec === s));
-  const io = new IntersectionObserver(
-    (entries) => {
-      const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (top) mark(top.target);
-    },
-    { rootMargin: '0px 0px -60% 0px' }
-  );
-  sections.forEach((s) => io.observe(s));
-  mark(sections[0]);
+
+  function show(id, userClick) {
+    const target = sections.find((s) => s.id === id) || sections[0];
+    for (const s of sections) s.hidden = s !== target;
+    links.forEach((a, sec) => {
+      a.classList.toggle('active', sec === target);
+      a.setAttribute('aria-selected', String(sec === target));
+    });
+    if (userClick) {
+      try {
+        history.replaceState(null, '', '#' + target.id);
+        localStorage.setItem(LAST_SECTION, target.id);
+      } catch {
+        /* без запоминания */
+      }
+      window.scrollTo({ top: 0 });
+    }
+    const active = links.get(target);
+    if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+
+  let first = '';
+  const h = location.hash.slice(1);
+  if (/^prompt=/.test(h)) first = 'prompts';
+  else if (sections.some((s) => s.id === h)) first = h;
+  else {
+    try {
+      first = localStorage.getItem(LAST_SECTION) || '';
+    } catch {
+      first = '';
+    }
+  }
+  show(first);
+  window.addEventListener('hashchange', () => {
+    const id = location.hash.slice(1);
+    if (sections.some((s) => s.id === id)) show(id, true);
+  });
+  // Клавиши ← → переключают вкладки, как в обычном tablist.
+  nav.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const cur = sections.findIndex((s) => !s.hidden);
+    const next = sections[(cur + (e.key === 'ArrowRight' ? 1 : sections.length - 1)) % sections.length];
+    show(next.id, true);
+    links.get(next).focus();
+  });
 }
 
 init();

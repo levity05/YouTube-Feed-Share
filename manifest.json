@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extName__",
-  "version": "3.5.0",
+  "version": "4.8.0",
   "description": "__MSG_extDesc__",
   "icons": {
     "16": "icons/icon16.png",
@@ -27,7 +27,16 @@
     "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
-    "https://www.youtube.com/*"
+    "https://www.youtube.com/*",
+    "https://lrclib.net/*",
+    "https://api.lyrics.ovh/*",
+    "https://7tv.io/*",
+    "https://cdn.7tv.app/*",
+    "https://api.betterttv.net/*",
+    "https://cdn.betterttv.net/*",
+    "https://api.frankerfacez.com/*",
+    "https://cdn.frankerfacez.com/*",
+    "https://cdn.jsdelivr.net/*"
   ],
   "content_scripts": [
     {
@@ -46,6 +55,7 @@
         "https://www.youtube.com/*"
       ],
       "js": [
+        "src/content/loop.js",
         "src/shared/i18n.js",
         "src/locales/en.js",
         "src/shared/feed.js",
@@ -74,12 +84,36 @@
       ],
       "js": [
         "src/shared/ai.js",
+        "src/shared/music.js",
+        "src/shared/feedrules.js",
+        "src/shared/taste.js",
+        "src/shared/liverules.js",
         "src/viewer/textpanel.js",
         "src/content/watchtools.js",
+        "src/content/queue.js",
         "src/content/resume.js",
-        "src/content/audiomode.js"
+        "src/content/audiomode.js",
+        "src/content/focusmode.js",
+        "src/content/feedfilter.js",
+        "src/content/livemode.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/live_chat*",
+        "https://www.youtube.com/live_chat_replay*"
+      ],
+      "js": [
+        "src/shared/i18n.js",
+        "src/locales/en.js",
+        "src/shared/liverules.js",
+        "src/shared/emotes.js",
+        "src/content/livechat.js",
+        "src/content/twitchchat.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     },
     {
       "matches": [

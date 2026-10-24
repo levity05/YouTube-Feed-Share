@@ -106,10 +106,8 @@
     const s = (await cfg.store.get('yfs_ai', {})) || {};
     const t = String(text || '').trim();
     if (p.builtin) {
-      const overrides = { ...(s.overrides || {}) };
-      if (!t || t === AI.builtinPrompt(p.id, I.lang).trim()) delete overrides[p.id];
-      else overrides[p.id] = t;
-      await saveAiSettings({ overrides });
+      // Правка встроенного пресета — только для текущего языка: на других языках остаётся их встроенный текст.
+      await saveAiSettings(AI.overridePatch(s, p.id, I.lang, t));
     } else if (p.id === 'custom' && !(s.presets || []).some((x) => x.id === 'custom')) {
       await saveAiSettings({ prompt: t });
     } else {
@@ -556,7 +554,7 @@
         prompt,
         video: { id: v.id, title: videoTitle(), channel: videoChannel(), duration: v.duration },
         segments,
-        language: I.info().english,
+        language: AI.languageName(I.info()),
         signal: abort ? abort.signal : undefined,
         onProgress(p) {
           if (!state || state.video.id !== id) return;

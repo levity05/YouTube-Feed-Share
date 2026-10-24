@@ -27,7 +27,7 @@ let savedOpts = {}; // последние сохранённые настрой�
 
 // ---------- вкладки: ▶ Смотреть · 📦 Снимок · ⚡ Shorts ----------
 
-const TABS = ['watch', 'snapshot', 'shorts'];
+const TABS = ['watch', 'snapshot', 'feed', 'shorts'];
 
 function setTab(name, remember = true) {
   for (const t of TABS) {
@@ -226,12 +226,19 @@ function renderHealth(warnings) {
     box.hidden = true;
     return;
   }
-  const lines = warnings.map((w) => {
+  const lines = [];
+  const fixes = [];
+  for (const w of warnings) {
+    // 🧠 ИИ починил парсер — отдельной строкой, без «похоже, YouTube что-то поменял».
+    if (w.ai && w.ai.status === 'fixed') fixes.push(tr('health.aiFixed', { page: pageTitle(w.page), found: w.ai.found, total: w.ai.total }));
+    else if (w.ai && w.ai.status === 'failed') fixes.push(tr('health.aiFailed', { page: pageTitle(w.page) }));
+    if (!w.reasons.length) continue;
     const why = w.reasons.map((r) => tr('health.' + r)).join('; ');
     const extra = w.idOnly ? ' ' + tr('health.idOnly', { n: w.idOnly }) : '';
-    return `${pageTitle(w.page)}: ${why}.${extra}`;
-  });
-  $('healthText').textContent = tr('health.intro') + ' ' + lines.join(' ') + ' ' + tr('health.outro');
+    lines.push(`${pageTitle(w.page)}: ${why}.${extra}`);
+  }
+  $('healthText').textContent = [lines.length ? tr('health.intro') + ' ' + lines.join(' ') + ' ' + tr('health.outro') : '', ...fixes].filter(Boolean).join(' ');
+  $('sampleBtn').hidden = !lines.length;
   box.hidden = false;
 }
 
@@ -331,15 +338,21 @@ async function renderPro() {
 // ---------- текст и сводка ролика, открытого во вкладке ----------
 
 const WATCH_FILES = [
+  'src/content/loop.js',
   'src/shared/i18n.js',
   'src/locales/en.js',
+  'src/shared/parse.js',
   'src/shared/transcript.js',
   'src/content/ytfetch.js',
   'src/shared/ai.js',
+  'src/shared/music.js',
+  'src/shared/feedrules.js',
   'src/viewer/textpanel.js',
   'src/content/watchtools.js',
   'src/content/resume.js',
   'src/content/audiomode.js',
+  'src/content/focusmode.js',
+  'src/content/feedfilter.js',
 ];
 
 function tabVideoId() {
@@ -422,7 +435,8 @@ async function renderVideoCard() {
   const onVideo = !!tab && !!tabVideoId();
   $('noVideo').hidden = onVideo;
   if (!onVideo) return;
-  $('videoAudio').hidden = !/\/watch/.test(new URL(tab.url).pathname); // аудио-режим — для обычных роликов, не Shorts
+  // Аудио- и СДВГ-режим — для обычных роликов, не Shorts.
+  $('videoAudio').hidden = $('videoFocus').hidden = !/\/watch/.test(new URL(tab.url).pathname);
   $('videoTitle').textContent = (tab.title || '').replace(/\s*-\s*YouTube\s*$/, '');
   $('videoCard').hidden = false;
   const info = await askTab({ type: 'yfs:watch-info' });
@@ -466,6 +480,7 @@ async function init() {
   renderResume();
   renderJob(yfs_job);
   setTab(initialTab(!!tabVideoId(), !!(yfs_job && yfs_job.running)), false);
+  renderFeed();
   if (!yfs_job || !yfs_job.running) chrome.action.setBadgeText({ text: '' });
   showResult();
   renderPro();
@@ -499,6 +514,49 @@ on('review', 'click', () => openViewer('#local=last'));
 on('openViewer', 'click', () => openViewer());
 on('openOptions', 'click', () => chrome.runtime.openOptionsPage());
 for (const t of TABS) on('tab-' + t, 'click', () => setTab(t));
+
+// ---------- 🎛 Лента: переключатели фильтра и вызов панелей на странице ----------
+
+const FEED_KEY = 'yfs_feedfilter';
+
+async function renderFeed() {
+  const R = YFS.feedrules;
+  const rules = R.normalizeRules((await chrome.storage.local.get(FEED_KEY))[FEED_KEY]);
+  $('feedOn').checked = rules.enabled;
+  for (const b of document.querySelectorAll('#feedQuick [data-rule]')) b.classList.toggle('on', !!rules[b.dataset.rule]);
+  const onYoutube = !!(tab && /^https:\/\/www\.youtube\.com\//.test(tab.url || ''));
+  for (const id of ['feedPanel', 'feedGroups', 'feedTaste', 'feedMusic']) $(id).disabled = !onYoutube;
+  $('feedHint').hidden = onYoutube;
+}
+
+async function setRule(patch) {
+  const R = YFS.feedrules;
+  const cur = R.normalizeRules((await chrome.storage.local.get(FEED_KEY))[FEED_KEY]);
+  await chrome.storage.local.set({ [FEED_KEY]: R.normalizeRules({ ...cur, ...patch }) });
+  renderFeed();
+}
+
+on('feedOn', 'change', () => setRule({ enabled: $('feedOn').checked }));
+for (const b of document.querySelectorAll('#feedQuick [data-rule]')) {
+  b.addEventListener('click', async () => {
+    const cur = YFS.feedrules.normalizeRules((await chrome.storage.local.get(FEED_KEY))[FEED_KEY]);
+    setRule({ [b.dataset.rule]: !cur[b.dataset.rule], enabled: true });
+  });
+}
+const feedAction = (action) => async () => {
+  if (!tab) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: 'yfs:feed-action', action });
+    window.close();
+  } catch {
+    $('feedHint').hidden = false;
+    $('feedHint').textContent = tr('popup.feedReload');
+  }
+};
+on('feedPanel', 'click', feedAction('panel'));
+on('feedGroups', 'click', feedAction('groups'));
+on('feedTaste', 'click', feedAction('taste'));
+on('feedMusic', 'click', feedAction('music'));
 // Стрелки влево/вправо по вкладкам — как в обычном tablist.
 on(document.querySelector('.tabs'), 'keydown', (e) => {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -510,6 +568,7 @@ on(document.querySelector('.tabs'), 'keydown', (e) => {
 on('videoText', 'click', () => openOnPage('text'));
 on('videoSummary', 'click', () => openOnPage('summary'));
 on('videoAudio', 'click', () => openOnPage('audio'));
+on('videoFocus', 'click', () => openOnPage('focus'));
 on('resumeClear', 'click', async () => {
   await chrome.storage.local.remove('yfs_resume');
   renderResume();
@@ -535,6 +594,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
   }
   if (area === 'local' && changes.yfs_viewer) renderPro();
+  if (area === 'local' && changes[FEED_KEY]) renderFeed();
   if (area === 'local' && changes.yfs_last && changes.yfs_last.newValue) {
     last = changes.yfs_last.newValue;
     showResult();

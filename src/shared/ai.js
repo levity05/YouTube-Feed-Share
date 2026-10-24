@@ -1,6 +1,6 @@
 /*
- * AI-сводка видео через Gemini API (ключ Google AI Studio).
- * Чистая логика: собрать запрос, разобрать ответ, превратить сводку в текст.
+ * Gemini API (ключ Google AI Studio): AI-сводка видео, план СДВГ-режима, ремонт парсера.
+ * Чистая логика: собрать запрос, разобрать ответ, балансировка по моделям, текст сводки.
  * Сеть — через переданный fetch, поэтому модуль работает в просмотрщике, на странице настроек и в Node-тестах.
  *
  * Ключ хранится только в этом браузере и уходит только на generativelanguage.googleapis.com.
@@ -14,202 +14,51 @@
 
   // ---------- системные промты: пресеты ----------
   //
-  // Промт собирается из общих блоков (что на входе, формат ответа, правила, самопроверка)
-  // и задачи пресета с требованиями к каждому полю. Схема ответа у всех пресетов одна (SCHEMA),
-  // поэтому любой пресет — и встроенный, и свой — показывается в панели одинаково.
-  // {language} заменяется языком интерфейса — на нём пишется сводка.
-  // Тексты на английском и русском: в русском интерфейсе промты русские (их удобнее править).
+  // Тексты промтов лежат в словарях переводов (src/locales/*, ключи prompt.*), поэтому встроенные
+  // пресеты сами меняются вместе с языком интерфейса. Промт собирается из общих частей (что на входе,
+  // формат ответа, правила, самопроверка) и задачи пресета с требованиями к каждому полю.
+  // Схема ответа у всех пресетов одна (SCHEMA). {language} заменяется названием языка сводки.
 
-  const PROMPT_BASE = {
-    en: {
-      intro:
-        'You are an expert video analyst and editor. You get one YouTube video: its title, channel, duration and transcript. Every transcript line starts with a timestamp like [m:ss] or [h:mm:ss]. The transcript is often auto-generated: no punctuation, misheard words, wrong names, markers like [music] or [applause].',
-      output:
-        'Answer with JSON in the given schema. Write every text value in {language}, even if the video is in another language. Keep names, brands, titles of works, code and direct quotes in their original spelling.',
-      fields: 'Fields:',
-      rules: 'Rules:',
-      common: [
-        'Facts only from the transcript and metadata. Never invent numbers, names, dates, quotes or timestamps. If something is unclear or the transcript is cut off, say so briefly instead of guessing.',
-        'Fix obvious speech-recognition errors using context (a misheard name, brand or term), without changing the meaning.',
-        'Skip filler: greetings, "like and subscribe", channel promos, repetitions, [music]. A sponsor or ad segment goes into the chronology as a separate item marked as an ad, and nowhere else.',
-        'Be concrete: not "the author talks about prices" but what exactly about prices, with the numbers. No phrases like "In this video the author…", "The video discusses…".',
-        'Neutral tone. The author\'s opinions and forecasts are presented as opinions ("the author believes…"), not as facts.',
-        'If the title asks a question or promises something ("what happened to…", "why…", "the best…"), the summary must give the actual answer from the video.',
-        'Chronology: every "time" is copied from the start of an existing transcript line (m:ss or h:mm:ss), never calculated or rounded. Items go in increasing time order; the first is near the start, the last is near the end of the video.',
-        'If the transcript is song lyrics, describe the theme and mood of the song instead of retelling the lines.',
-        'If there is no transcript and you are given the video itself, use what is said and shown in it.',
-        'Before answering, check silently: every timestamp exists in the transcript, every fact is supported by it, all text is in {language}.',
-      ],
-    },
-    ru: {
-      intro:
-        'Ты — опытный аналитик и редактор видео. Тебе дают один ролик YouTube: название, канал, длительность и текст (расшифровку). Каждая строка расшифровки начинается с метки времени вида [m:ss] или [h:mm:ss]. Расшифровка часто автоматическая: без знаков препинания, с ослышками, искажёнными именами и пометками вроде [музыка] или [аплодисменты].',
-      output:
-        'Ответь JSON по заданной схеме. Все текстовые значения пиши на языке: {language} — даже если ролик на другом языке. Имена, бренды, названия произведений, код и прямые цитаты оставляй в исходном написании.',
-      fields: 'Поля:',
-      rules: 'Правила:',
-      common: [
-        'Только факты из расшифровки и данных ролика. Никогда не выдумывай числа, имена, даты, цитаты и метки времени. Если что-то неясно или текст обрывается — коротко так и скажи, а не угадывай.',
-        'Исправляй очевидные ошибки распознавания речи по контексту (ослышка в имени, бренде, термине), не меняя смысла.',
-        'Пропускай «воду»: приветствия, «ставьте лайк и подписывайтесь», рекламу канала, повторы, [музыка]. Спонсорская или рекламная вставка — отдельный пункт хронологии с пометкой, что это реклама, и больше нигде.',
-        'Конкретно: не «автор рассказывает о ценах», а что именно о ценах, с цифрами. Без оборотов «В этом видео автор…», «В ролике рассматривается…».',
-        'Нейтральный тон. Мнения и прогнозы автора подавай как мнения («автор считает…»), а не как факты.',
-        'Если в названии вопрос или обещание («что стало с…», «почему…», «лучший…») — в сводке должен быть настоящий ответ из ролика.',
-        'Хронология: каждое "time" скопировано из начала существующей строки расшифровки (m:ss или h:mm:ss), не вычислено и не округлено. Пункты идут по возрастанию времени; первый — близко к началу, последний — близко к концу ролика.',
-        'Если расшифровка — текст песни, опиши тему и настроение песни, а не пересказывай куплеты.',
-        'Если расшифровки нет и тебе дан сам ролик — опирайся на то, что в нём говорят и показывают.',
-        'Перед ответом молча проверь: каждая метка времени есть в расшифровке, каждый факт подтверждается текстом, весь текст на языке {language}.',
-      ],
-    },
-  };
+  const PRESET_IDS = ['standard', 'brief', 'detailed', 'study', 'facts', 'clickbait'];
+  const PROMPT_FIELDS = ['tags', 'summary', 'keyPoints', 'chronology', 'audience'];
+  const PROMPT_RULES = ['facts', 'asr', 'filler', 'concrete', 'opinions', 'title', 'time', 'plain', 'lyrics', 'noTranscript', 'check'];
 
-  /** Задача и требования к полям для каждого встроенного пресета. */
-  const PRESET_SPECS = {
-    standard: {
-      en: {
-        task: 'Task: a balanced summary. Someone who reads it in a minute should understand what the video is about, its main points and its conclusion.',
-        tags: '5–8 tags for the core meaning: topics, key names and concepts. 1–3 words each, lowercase except proper nouns, without "#", no generic words (video, youtube, review, vlog).',
-        summary: '3–5 sentences. The first sentence is the main point or the answer the video gives. Then the key arguments or the story, then the conclusion or outcome.',
-        keyPoints: '4–7 most important takeaways, ordered by importance. Each is one complete sentence with a concrete fact, argument, number or piece of advice.',
-        chronology: '6–12 parts covering the whole video (2–4 for a short one). "title" — 2–6 words naming the topic of the part; "details" — one sentence about what is said or happens there.',
-        audience: 'one sentence: who will benefit from the video and what they will get.',
-      },
-      ru: {
-        task: 'Задача: сбалансированная сводка. Прочитав её за минуту, человек должен понять, о чём ролик, его главные мысли и вывод.',
-        tags: '5–8 тегов основного смысла: темы, ключевые имена и понятия. 1–3 слова, строчными (кроме имён собственных), без «#», без общих слов (видео, ютуб, обзор, влог).',
-        summary: '3–5 предложений. Первое — главная мысль или ответ, который даёт ролик. Дальше — ключевые доводы или сюжет, затем вывод или итог.',
-        keyPoints: '4–7 самых важных мыслей по убыванию важности. Каждая — одно законченное предложение с конкретным фактом, доводом, числом или советом.',
-        chronology: '6–12 частей, покрывающих весь ролик (2–4 для короткого). "title" — 2–6 слов, тема части; "details" — одно предложение о том, что там говорят или происходит.',
-        audience: 'одно предложение: кому ролик полезен и что он из него получит.',
-      },
-    },
-    brief: {
-      en: {
-        task: 'Task: a TL;DR that can be read in 15 seconds.',
-        tags: '3–5 tags for the core topics, 1–3 words each, without "#".',
-        summary: '1–2 sentences: the main point or answer and the conclusion.',
-        keyPoints: 'exactly 3 short takeaways, up to 12 words each.',
-        chronology: '3–5 main parts. "title" — 2–4 words; "details" — an empty string.',
-        audience: 'up to 8 words.',
-      },
-      ru: {
-        task: 'Задача: TL;DR, который читается за 15 секунд.',
-        tags: '3–5 тегов главных тем, 1–3 слова, без «#».',
-        summary: '1–2 предложения: главная мысль или ответ и вывод.',
-        keyPoints: 'ровно 3 коротких пункта, до 12 слов каждый.',
-        chronology: '3–5 главных частей. "title" — 2–4 слова; "details" — пустая строка.',
-        audience: 'до 8 слов.',
-      },
-    },
-    detailed: {
-      en: {
-        task: 'Task: a detailed retelling that replaces watching the video — all arguments, examples, numbers and conclusions in the order the author gives them.',
-        tags: '8–12 tags covering all main topics, names and concepts, without "#".',
-        summary: '2–4 paragraphs (8–16 sentences) separated by a blank line: the context and the question; the main argument or story step by step with examples and numbers; the conclusion. Retell the reasoning, not just list the topics.',
-        keyPoints: '8–14 points: facts, numbers, arguments, recommendations — each one or two self-contained sentences.',
-        chronology: 'a detailed outline: a new item at every change of topic, roughly every 1–3 minutes, up to 30 items. "title" — 3–8 words; "details" — 1–2 sentences with specifics.',
-        audience: 'one sentence about who will find this useful.',
-      },
-      ru: {
-        task: 'Задача: подробный пересказ, который заменяет просмотр, — все доводы, примеры, цифры и выводы в том порядке, в каком их даёт автор.',
-        tags: '8–12 тегов: все главные темы, имена и понятия, без «#».',
-        summary: '2–4 абзаца (8–16 предложений), между абзацами пустая строка: контекст и вопрос; главный довод или сюжет по шагам с примерами и цифрами; вывод. Пересказывай ход мысли, а не перечисляй темы.',
-        keyPoints: '8–14 пунктов: факты, цифры, доводы, рекомендации — по одному-два самостоятельных предложения.',
-        chronology: 'подробный план: новый пункт на каждой смене темы, примерно каждые 1–3 минуты, до 30 пунктов. "title" — 3–8 слов; "details" — 1–2 предложения с конкретикой.',
-        audience: 'одно предложение: кому это пригодится.',
-      },
-    },
-    study: {
-      en: {
-        task: 'Task: study notes for learning the material, the way a strong student writes them after a lecture.',
-        tags: '5–10 key terms and concepts of the video, without "#".',
-        summary: '3–6 sentences that explain the core idea in simple words, as a good teacher would, with one example from the video if there is one.',
-        keyPoints: '6–12 things to remember: definitions ("Term — meaning"), rules, formulas, steps of a method, important numbers. Each is precise and self-contained; keep terms and units as in the video.',
-        chronology: 'the lesson plan: 4–15 sections in order. "title" — the topic of the section; "details" — what exactly is explained or shown there, including examples.',
-        audience: 'who the lesson is for and what prior knowledge it assumes.',
-      },
-      ru: {
-        task: 'Задача: конспект для изучения материала — такой, какой пишет сильный студент после лекции.',
-        tags: '5–10 ключевых терминов и понятий ролика, без «#».',
-        summary: '3–6 предложений: главная идея простыми словами, как объяснил бы хороший преподаватель, с одним примером из ролика, если он есть.',
-        keyPoints: '6–12 пунктов «запомнить»: определения («Термин — значение»), правила, формулы, шаги метода, важные числа. Каждый точный и самостоятельный; термины и единицы — как в ролике.',
-        chronology: 'план занятия: 4–15 разделов по порядку. "title" — тема раздела; "details" — что именно там объясняют или показывают, включая примеры.',
-        audience: 'для кого занятие и какие знания нужны заранее.',
-      },
-    },
-    facts: {
-      en: {
-        task: 'Task: extract only the hard information — facts, numbers, dates, names, prices, claims and recommendations. No retelling of the story.',
-        tags: '5–8 tags for the topics the facts are about, without "#".',
-        summary: '2–3 sentences: what kind of information the video gives and its single most important fact or conclusion.',
-        keyPoints: '8–15 items, one fact or claim each, with numbers, dates and names exactly as said. Mark opinions and forecasts of the author with "(opinion)" or "(forecast)", translated into {language}.',
-        chronology: 'where the important facts are: 4–15 items. "title" — the fact in 3–7 words; "details" — its context in one sentence.',
-        audience: 'one sentence about who needs this information.',
-      },
-      ru: {
-        task: 'Задача: вытащить только «твёрдую» информацию — факты, цифры, даты, имена, цены, утверждения и рекомендации. Без пересказа сюжета.',
-        tags: '5–8 тегов тем, к которым относятся факты, без «#».',
-        summary: '2–3 предложения: какую информацию даёт ролик и самый важный факт или вывод.',
-        keyPoints: '8–15 пунктов, в каждом один факт или утверждение, с числами, датами и именами точно как сказано. Мнения и прогнозы автора помечай «(мнение)» или «(прогноз)».',
-        chronology: 'где в ролике важные факты: 4–15 пунктов. "title" — сам факт в 3–7 словах; "details" — его контекст в одном предложении.',
-        audience: 'одно предложение: кому нужна эта информация.',
-      },
-    },
-    clickbait: {
-      en: {
-        task: 'Task: decode the title. Find what the title promises or asks and give the answer right away, so the reader does not have to watch the video to find it.',
-        tags: '3–6 tags, without "#".',
-        summary: 'Start with the direct answer to the question or promise of the title (1–2 sentences). Then one sentence: does the video deliver on its title — fully, partly or not, and why; and how much of the video passes before the answer.',
-        keyPoints: '3–6 points that support or explain the answer.',
-        chronology: '3–8 items, including the exact moment where the answer is given (its "title" says that this is the answer). "details" — one sentence.',
-        audience: 'one sentence: is it worth watching in full, and for whom.',
-      },
-      ru: {
-        task: 'Задача: расшифровать заголовок. Найди, что обещает или о чём спрашивает название, и сразу дай ответ — чтобы его не пришлось искать в ролике.',
-        tags: '3–6 тегов, без «#».',
-        summary: 'Начни с прямого ответа на вопрос или обещание из названия (1–2 предложения). Затем одно предложение: выполняет ли ролик обещание заголовка — полностью, частично или нет, и почему; и сколько ролика проходит до ответа.',
-        keyPoints: '3–6 пунктов, которые подтверждают или объясняют ответ.',
-        chronology: '3–8 пунктов, включая точный момент, где звучит ответ (в его "title" так и сказано, что это ответ). "details" — одно предложение.',
-        audience: 'одно предложение: стоит ли смотреть целиком и кому.',
-      },
-    },
-  };
+  /** Откуда брать тексты: функция (key → строка), словарь или текущий язык интерфейса (YFS.i18n). */
+  function translator(t) {
+    if (typeof t === 'function') return t;
+    if (t && typeof t === 'object') return (k) => (t[k] !== undefined ? t[k] : k);
+    const i18n = root.YFS && root.YFS.i18n;
+    return i18n ? (k) => i18n.t(k) : (k) => k;
+  }
 
-  const PRESET_IDS = Object.keys(PRESET_SPECS);
-  const PROMPT_LANGS = Object.keys(PROMPT_BASE);
-
-  /** Встроенный промт пресета на языке интерфейса (русский — для ru, иначе английский). */
-  function builtinPrompt(id, uiLang) {
-    const lang = PROMPT_LANGS.includes(uiLang) ? uiLang : 'en';
-    const spec = (PRESET_SPECS[id] || PRESET_SPECS.standard)[lang];
-    const base = PROMPT_BASE[lang];
-    const field = (name) => `- "${name}": ${spec[name]}`;
+  /** Встроенный промт пресета на языке словаря. */
+  function builtinPrompt(id, t) {
+    const tr = translator(t);
+    const p = PRESET_IDS.includes(id) ? id : 'standard';
     return [
-      base.intro,
-      spec.task,
-      base.output,
-      [base.fields, ...['tags', 'summary', 'keyPoints', 'chronology', 'audience'].map(field)].join('\n'),
-      [base.rules, ...base.common.map((r) => '- ' + r)].join('\n'),
+      tr('prompt.intro'),
+      tr(`prompt.${p}.task`),
+      tr('prompt.output'),
+      [tr('prompt.fields'), ...PROMPT_FIELDS.map((f) => `- "${f}": ${tr(`prompt.${p}.${f}`)}`)].join('\n'),
+      [tr('prompt.rules'), ...PROMPT_RULES.map((r) => '- ' + tr('prompt.rule.' + r))].join('\n'),
     ].join('\n\n');
   }
 
-  /** Системный промт по умолчанию (стандартный пресет, английский). */
-  const DEFAULT_PROMPT = builtinPrompt('standard', 'en');
-  /** Встроенные промты на английском — для совместимости и тестов. */
-  const PRESETS = Object.fromEntries(PRESET_IDS.map((id) => [id, builtinPrompt(id, 'en')]));
-
   /**
    * Все пресеты с учётом настроек (yfs_ai):
-   *   встроенные — текст можно изменить (overrides[id]), сбросить — вернуть встроенный;
+   *   встроенные — текст на языке интерфейса; правка хранится отдельно для каждого языка
+   *   (overridesByLang[lang][id]; старое overrides[id] действует для всех языков);
    *   свои — presets: [{ id, name, text }]; старый единственный «свой промт» (prompt) — пресет «custom».
    * Ответ: [{ id, builtin, name, text, edited }], name у встроенных пустое — подпись берётся из перевода.
    */
-  function presetList(settings, uiLang) {
+  function presetList(settings, lang, t) {
     const s = settings || {};
-    const overrides = s.overrides && typeof s.overrides === 'object' ? s.overrides : {};
+    const byLang = (s.overridesByLang && typeof s.overridesByLang === 'object' && s.overridesByLang[lang]) || {};
+    const legacy = s.overrides && typeof s.overrides === 'object' ? s.overrides : {};
     const out = PRESET_IDS.map((id) => {
-      const own = typeof overrides[id] === 'string' && overrides[id].trim() ? overrides[id] : '';
-      return { id, builtin: true, name: '', text: own || builtinPrompt(id, uiLang), edited: !!own };
+      const raw = typeof byLang[id] === 'string' ? byLang[id] : typeof legacy[id] === 'string' ? legacy[id] : '';
+      const own = raw.trim() ? raw : '';
+      return { id, builtin: true, name: '', text: own || builtinPrompt(id, t), edited: !!own };
     });
     const customs = Array.isArray(s.presets) ? s.presets.filter((p) => p && p.id && typeof p.text === 'string') : [];
     if (s.prompt && !customs.some((p) => p.id === 'custom')) out.push({ id: 'custom', builtin: false, name: '', text: s.prompt, edited: false });
@@ -218,15 +67,38 @@
   }
 
   /** Текст пресета; неизвестный id — стандартный. */
-  function presetText(settings, id, uiLang) {
-    const list = presetList(settings, uiLang);
+  function presetText(settings, id, lang, t) {
+    const list = presetList(settings, lang, t);
     return (list.find((p) => p.id === id) || list[0]).text;
   }
 
-  /** Совместимость: promptFor(preset, custom) — встроенный английский пресет или свой текст. */
+  /**
+   * Изменения настроек для правки встроенного пресета на языке lang.
+   * Пустой текст или совпадающий со встроенным — сброс правки. Возвращает { overridesByLang, overrides }.
+   */
+  function overridePatch(settings, id, lang, text, t) {
+    const s = settings || {};
+    const byLang = { ...(s.overridesByLang || {}) };
+    const cur = { ...(byLang[lang] || {}) };
+    const v = String(text || '').trim();
+    if (!v || v === builtinPrompt(id, t).trim()) delete cur[id];
+    else cur[id] = v;
+    byLang[lang] = cur;
+    const overrides = { ...(s.overrides || {}) };
+    delete overrides[id]; // старая правка «для всех языков» заменяется правкой этого языка
+    return { overridesByLang: byLang, overrides };
+  }
+
+  /** Название языка сводки для промта: «Русский (Russian)». */
+  function languageName(info) {
+    if (!info) return 'English';
+    return info.english && info.name && info.english !== info.name ? `${info.name} (${info.english})` : info.english || info.name || 'English';
+  }
+
+  /** Совместимость: promptFor(preset, custom) — встроенный пресет на текущем языке или свой текст. */
   function promptFor(preset, custom) {
     if (preset === 'custom' && custom) return custom;
-    return PRESETS[preset] || DEFAULT_PROMPT;
+    return builtinPrompt(preset);
   }
 
   /** Короткий отпечаток текста промта: сводка из кэша годится, только если промт с тех пор не меняли. */
@@ -310,7 +182,7 @@
    * (тогда модель смотрит сам ролик по ссылке YouTube — Gemini это умеет для публичных видео).
    */
   function buildRequest({ video, segments, language, prompt, model, thinking = true }) {
-    const system = String(prompt || DEFAULT_PROMPT).replace(/\{language\}/g, language || 'English');
+    const system = String(prompt || builtinPrompt('standard')).replace(/\{language\}/g, language || 'English');
     const url = `https://www.youtube.com/watch?v=${video.id}`;
     const meta = [
       video.title ? `Title: ${video.title}` : '',
@@ -363,14 +235,17 @@
     };
   }
 
+  // ---------- общий вызов Gemini: JSON по схеме ----------
+
   /**
-   * Запрос сводки. Возвращает { result, model, usedTranscript } или бросает Error с .code.
+   * Один запрос generateContent → разобранный JSON ответа.
+   * makeBody(thinking) строит тело запроса; если модель не принимает настройку thinking — повтор без неё.
+   * Таймаут и отмена: зависший запрос не держит интерфейс, а балансировщик переходит к другой модели.
    */
-  async function summarize({ key, model, prompt, video, segments, language, fetchImpl, signal, timeoutMs = 90000, thinking = true }) {
+  async function callGemini({ key, model, makeBody, fetchImpl, signal, timeoutMs = 90000, thinking = true }) {
     const doFetch = fetchImpl || ((...a) => fetch(...a));
     if (!key) throw Object.assign(new Error('no key'), { code: 'ai-no-key' });
     const m = model || DEFAULT_MODEL;
-    // Таймаут и отмена: зависший запрос не держит панель вечно, а балансировщик переходит к другой модели.
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const onAbort = () => ctrl && ctrl.abort();
     if (signal) signal.addEventListener('abort', onAbort);
@@ -381,7 +256,7 @@
       res = await doFetch(`${API}/models/${encodeURIComponent(m)}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify(buildRequest({ video, segments, language, prompt, model: m, thinking })),
+        body: JSON.stringify(makeBody(thinking)),
         ...(ctrl ? { signal: ctrl.signal } : {}),
       });
       try {
@@ -400,8 +275,7 @@
     if (signal && signal.aborted) throw Object.assign(new Error('cancelled'), { code: 'ai-cancelled' });
     if (!res.ok) {
       const code = errorCode(res.status, body);
-      // Модель не принимает настройку thinking — тот же запрос без неё.
-      if (code === 'ai-thinking' && thinking) return summarize({ key, model, prompt, video, segments, language, fetchImpl, signal, timeoutMs, thinking: false });
+      if (code === 'ai-thinking' && thinking) return callGemini({ key, model: m, makeBody, fetchImpl, signal, timeoutMs, thinking: false });
       throw Object.assign(new Error((body && body.error && body.error.message) || 'HTTP ' + res.status), { code });
     }
     const cand = body && body.candidates && body.candidates[0];
@@ -413,13 +287,52 @@
       throw Object.assign(new Error(cand.finishReason), { code: 'ai-blocked' });
     }
     const text = ((cand.content && cand.content.parts) || []).map((p) => p.text || '').join('');
-    let parsed;
     try {
-      parsed = JSON.parse(text);
+      return JSON.parse(text);
     } catch {
       throw Object.assign(new Error('bad json'), { code: 'ai-failed' });
     }
-    return { result: normalizeResult(parsed), model: m, usedTranscript: !!(segments && segments.length) };
+  }
+
+  function generationConfig(schema, temperature, model, thinking) {
+    return {
+      responseMimeType: 'application/json',
+      responseSchema: schema,
+      temperature,
+      ...(thinking && thinkingConfig(model) ? { thinkingConfig: thinkingConfig(model) } : {}),
+    };
+  }
+
+  /**
+   * Запрос сводки. Возвращает { result, model, usedTranscript } или бросает Error с .code.
+   */
+  async function summarize(args) {
+    const m = args.model || DEFAULT_MODEL;
+    const parsed = await callGemini({
+      ...args,
+      model: m,
+      thinking: args.thinking !== false,
+      makeBody: (thinking) => buildRequest({ ...args, model: m, thinking }),
+    });
+    return { result: normalizeResult(parsed), model: m, usedTranscript: !!(args.segments && args.segments.length) };
+  }
+
+  /** Любой запрос «системный промт + части + схема» → { data, model }. */
+  async function generateJSON({ key, model, system, parts, schema, temperature = 0.2, fetchImpl, signal, timeoutMs }) {
+    const m = model || DEFAULT_MODEL;
+    const data = await callGemini({
+      key,
+      model: m,
+      fetchImpl,
+      signal,
+      timeoutMs,
+      makeBody: (thinking) => ({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig: generationConfig(schema, temperature, m, thinking),
+      }),
+    });
+    return { data, model: m };
   }
 
   /** Модели, которые умеют generateContent; заодно проверяет ключ. */
@@ -482,12 +395,12 @@
   }
 
   /**
-   * Сводка с балансировкой: модель перегружена (503), упёрлась в лимит (429), пропала (404) или не ответила вовремя —
-   * повтор через ~1 с (только для 503) и переход к следующей модели. До maxModels моделей.
-   * onProgress({ model, attempt, tried }) — что сейчас пробуем (для подписи в панели).
-   * Ответ: { result, model, usedTranscript, tried: [{ model, code }] }.
+   * Балансировка по моделям: модель перегружена (503), упёрлась в лимит (429), пропала (404) или не ответила
+   * вовремя — повтор через ~1 с (только для 503) и переход к следующей модели. До maxModels моделей.
+   * onProgress({ model, attempt, tried }) — что сейчас пробуем (для подписи в интерфейсе).
+   * run(model) делает сам запрос. Ответ: результат run + tried: [{ model, code }].
    */
-  async function summarizeSmart(args) {
+  async function balance(args, run) {
     const { model, models, onProgress, maxModels = 4, signal } = args;
     const list = candidates(models, model).slice(0, maxModels);
     const tried = [];
@@ -497,7 +410,7 @@
         if (signal && signal.aborted) throw Object.assign(new Error('cancelled'), { code: 'ai-cancelled' });
         if (onProgress) onProgress({ model: m, attempt, tried: tried.slice() });
         try {
-          const out = await summarize({ ...args, model: m });
+          const out = await run(m);
           cooldown.delete(m);
           return { ...out, tried };
         } catch (err) {
@@ -514,6 +427,307 @@
       tried.push({ model: m, code: lastErr.code });
     }
     throw Object.assign(lastErr || new Error('no models'), { code: (lastErr && lastErr.code) || 'ai-failed', tried });
+  }
+
+  /** Сводка с балансировкой. Ответ: { result, model, usedTranscript, tried }. */
+  function summarizeSmart(args) {
+    return balance(args, (m) => summarize({ ...args, model: m }));
+  }
+
+  /** generateJSON с балансировкой. Ответ: { data, model, tried }. */
+  function generateSmart(args) {
+    return balance(args, (m) => generateJSON({ ...args, model: m }));
+  }
+
+  // ---------- ⚡ СДВГ-режим: план просмотра «что смотреть, что ускорить, что пропустить» ----------
+
+  const FOCUS_ACTIONS = ['keep', 'fast', 'skip'];
+  const FOCUS_STYLES = {
+    ads: 'ads only: skip ONLY paid promotions, sponsor reads, self-promotion, “like and subscribe” and long intros/outros; everything else is keep.',
+    gentle: 'gentle: skip only obvious filler (long intros, sponsor ads, outros, “subscribe” talk); everything else is keep or fast.',
+    normal: 'balanced: keep the parts that carry the meaning, speed up slow or secondary parts, skip filler.',
+    hard: 'aggressive: keep only the most valuable 25–40% of the video; everything else is fast or skip.',
+    highlights: 'highlights only: keep just the best 10–20% — the strongest moments, answers and punchlines; skip the rest, but never skip the main answer or the ending the title promises.',
+  };
+  const FOCUS_STYLE_IDS = Object.keys(FOCUS_STYLES);
+
+  // Тип ролика: у игрового, лекции, подкаста и т. д. «вода» разная — у каждого свои правила.
+  const FOCUS_KINDS = {
+    gaming: 'gaming / let’s play: keep action, fights, boss battles, clutch moments, funny reactions and story cutscenes; fast: walking, travel, looting, grinding, inventory and menus; skip: loading screens, “starting soon”, long intros, sponsor reads, idle waiting, deaths replayed again.',
+    lecture: 'lecture / tutorial / explainer: keep explanations, definitions, examples, demos, code and the conclusion; fast: repetition and slow derivations of what was already explained; skip: greetings, housekeeping, course promotion, sponsor reads.',
+    podcast: 'podcast / interview / talk show: keep substantive answers, stories and strong opinions; fast: small talk, tangents and long questions; skip: ads, intros, outros, guest bios read aloud.',
+    review: 'review / tech / product video: keep the verdict, key pros and cons, test results, prices and comparisons; fast: unboxing, b-roll and specs read aloud; skip: sponsor reads and channel promotion.',
+    news: 'news / analysis: keep the facts, numbers and new developments; fast: commentary and background most viewers know; skip: repeated recaps, teasers of other segments, ads.',
+    vlog: 'vlog / travel / lifestyle: keep events, decisions and reveals; fast: travel shots, b-roll and routine; skip: intros, ads, “what’s up guys”.',
+    stream: 'stream recording (VOD): keep highlights, reactions, announcements and the main event; fast: chatting with chat and slow stretches; skip: “starting soon” screens, BRB breaks, technical problems and long silences.',
+    other: 'any other video: apply the general rules.',
+  };
+  const FOCUS_KIND_IDS = Object.keys(FOCUS_KINDS);
+
+  const FOCUS_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+      kind: { type: 'STRING', enum: FOCUS_KIND_IDS },
+      overview: { type: 'STRING' },
+      segments: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            start: { type: 'STRING' },
+            end: { type: 'STRING' },
+            action: { type: 'STRING', enum: FOCUS_ACTIONS },
+            interest: { type: 'INTEGER' },
+            title: { type: 'STRING' },
+            summary: { type: 'STRING' },
+          },
+          required: ['start', 'end', 'action', 'title'],
+          propertyOrdering: ['start', 'end', 'action', 'interest', 'title', 'summary'],
+        },
+      },
+    },
+    required: ['segments'],
+    propertyOrdering: ['kind', 'overview', 'segments'],
+  };
+
+  /** Системный промт плана просмотра. style — gentle | normal | hard. */
+  function focusPrompt(style, language, kind) {
+    const forced = FOCUS_KINDS[kind] && kind !== 'other' ? kind : '';
+    const kindRules = forced
+      ? [`Video kind: ${forced} (chosen by the viewer). Rules for it — ${FOCUS_KINDS[forced]}`, `Return "kind": "${forced}".`]
+      : ['First decide what kind of video it is and return it in "kind". Then use the rules for that kind:', ...FOCUS_KIND_IDS.map((k) => `- ${k}: ${FOCUS_KINDS[k]}`)];
+    return [
+      'You are a video editor who makes long videos watchable for people with ADHD or little time. You get a YouTube video’s metadata and its transcript; every line starts with a timestamp like [m:ss].',
+      'Split the WHOLE video into consecutive segments without gaps or overlaps, from the first transcript line to the end of the video. For each segment:',
+      '- "start", "end": timestamps copied from the beginnings of transcript lines (m:ss or h:mm:ss); "end" equals the next segment’s "start"; the last segment ends at the video duration.',
+      '- "interest" 1–5: how much this part matters for understanding the video. 5 — key moments, answers, conclusions, demos, punchlines; 1 — filler: intros, sponsor ads, “like and subscribe”, repetition, off-topic chatter.',
+      '- "action": "keep" (watch at normal speed), "fast" (worth hearing, but can be played faster), "skip" (nothing is lost).',
+      '- "title": 2–5 words.',
+      '- "summary": for "skip" and "fast" — what happens there in at most 12 words, so the viewer loses nothing by skipping; for "keep" — one short sentence.',
+      '- "overview": one sentence about the whole video.',
+      `Style: ${FOCUS_STYLES[style] || FOCUS_STYLES.normal}`,
+      ...kindRules,
+      'Segments are 15 seconds to 5 minutes long; merge neighbours with the same action. Never skip the main answer, the conclusion or the moment the title promises.',
+      `Write "title", "summary" and "overview" in ${language || 'English'}. Plain text, no Markdown. Use only what is in the transcript; never invent timestamps.`,
+    ].join('\n');
+  }
+
+  function buildFocusParts(video, segments) {
+    const url = `https://www.youtube.com/watch?v=${video.id}`;
+    const meta = [video.title && `Title: ${video.title}`, video.channel && `Channel: ${video.channel}`, video.duration && `Duration: ${video.duration}`, `URL: ${url}`]
+      .filter(Boolean)
+      .join('\n');
+    return segments && segments.length
+      ? [{ text: `${meta}\n\nTranscript:\n${transcriptText(segments)}` }]
+      : [{ fileData: { fileUri: url } }, { text: `${meta}\n\nNo transcript is available — plan from the video itself.` }];
+  }
+
+  function timeToSec(ts) {
+    const s = String(ts || '').trim();
+    if (!/^\d+(:\d{1,2}){0,2}$/.test(s)) return NaN;
+    return s.split(':').reduce((a, p) => a * 60 + Number(p), 0);
+  }
+
+  /**
+   * Привести план модели в порядок: секунды, сортировка, без дыр и наложений, в пределах длительности.
+   * Если модель «пропустила» почти всё — смягчаем: лишние skip становятся fast.
+   * Ответ: { overview, segments: [{ start, end, action, interest, title, summary }] } (start/end — секунды).
+   */
+  function normalizeFocus(raw, durationSec, style) {
+    const r = raw && typeof raw === 'object' ? raw : {};
+    const dur = Number(durationSec) > 0 ? Number(durationSec) : Infinity;
+    let segs = (Array.isArray(r.segments) ? r.segments : [])
+      .map((s) => ({
+        start: timeToSec(s && s.start),
+        end: timeToSec(s && s.end),
+        action: FOCUS_ACTIONS.includes(s && s.action) ? s.action : 'keep',
+        interest: Math.min(5, Math.max(1, Math.round(Number(s && s.interest) || 3))),
+        title: String((s && s.title) || '').trim(),
+        summary: String((s && s.summary) || '').trim(),
+      }))
+      .filter((s) => Number.isFinite(s.start) && s.start < dur)
+      .sort((a, b) => a.start - b.start);
+    // Конец сегмента — начало следующего: так нет ни дыр, ни наложений.
+    for (let i = 0; i < segs.length; i++) {
+      const next = segs[i + 1];
+      segs[i].end = next ? next.start : Number.isFinite(segs[i].end) && segs[i].end > segs[i].start ? Math.min(segs[i].end, dur) : dur;
+    }
+    segs = segs.filter((s) => s.end > s.start);
+    if (segs.length && segs[0].start > 0) segs[0].start = 0;
+    const total = segs.reduce((a, s) => a + (s.end - s.start), 0) || 1;
+    const skipped = segs.filter((s) => s.action === 'skip').reduce((a, s) => a + (s.end - s.start), 0);
+    // «Только лучшее» может пропускать до 90%, остальные стили — до 80% (иначе модель «пропустила всё»).
+    const limit = style === 'highlights' ? 0.9 : 0.8;
+    if (skipped / total > limit) {
+      // Самые «интересные» из пропущенных — ускоряем, пока пропуск не станет разумным.
+      for (const s of segs.filter((x) => x.action === 'skip').sort((a, b) => b.interest - a.interest)) {
+        if (segs.filter((x) => x.action === 'skip').reduce((a, x) => a + (x.end - x.start), 0) / total <= limit - 0.2) break;
+        s.action = 'fast';
+      }
+    }
+    return { kind: FOCUS_KIND_IDS.includes(r.kind) ? r.kind : 'other', overview: typeof r.overview === 'string' ? r.overview.trim() : '', segments: segs };
+  }
+
+  /** План просмотра с балансировкой. Ответ: { plan, model, tried, usedTranscript }. */
+  async function focusPlan(args) {
+    const out = await generateSmart({
+      ...args,
+      system: focusPrompt(args.style, args.language, args.kind),
+      parts: buildFocusParts(args.video, args.segments),
+      schema: FOCUS_SCHEMA,
+      temperature: 0.2,
+    });
+    const plan = normalizeFocus(out.data, args.durationSec, args.style);
+    if (FOCUS_KIND_IDS.includes(args.kind)) plan.kind = args.kind; // тип выбрал человек — он и показывается
+    return { plan, model: out.model, tried: out.tried, usedTranscript: !!(args.segments && args.segments.length) };
+  }
+
+  /** Сколько времени экономит план при скорости fast: { watch, total, saved } в секундах. */
+  function focusSavings(plan, fastRate = 1.75) {
+    let watch = 0;
+    let total = 0;
+    for (const s of (plan && plan.segments) || []) {
+      const d = s.end - s.start;
+      total += d;
+      if (s.action === 'keep') watch += d;
+      else if (s.action === 'fast') watch += d / (fastRate || 1);
+    }
+    return { watch, total, saved: Math.max(0, total - watch) };
+  }
+
+  // ---------- ⭐ подборка по вкусу: один короткий запрос ----------
+
+  const TASTE_SCHEMA = {
+    type: 'OBJECT',
+    properties: { picks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { id: { type: 'STRING' }, why: { type: 'STRING' } }, required: ['id', 'why'] } } },
+    required: ['picks'],
+  };
+
+  const TASTE_PROMPT = [
+    'You help a viewer choose what to watch next on YouTube.',
+    'You get a short summary of their taste (topics and channels from their watch history) and a numbered list of candidate videos from their feed (id, title, channel, length, short description).',
+    'Pick the videos they are most likely to enjoy, best first. For each pick write "why": one plain sentence (at most 25 words) saying what the video is about and why it fits this viewer. Use only the given information; do not invent facts.',
+    'Prefer variety over several near-duplicates. Return ids exactly as given, each at most once. No Markdown.',
+  ].join('\n');
+
+  /**
+   * args: { profile: { videos, terms, channels: [{name,count}], medianMin }, candidates: [{id,title,channel,minutes,desc}], count, language }.
+   * Ответ: { picks: [{ id, why }], model, tried } — id только из candidates, ровно count (дополняется исходным порядком).
+   */
+  async function tastePicks(args) {
+    const cands = (args.candidates || []).slice(0, 24);
+    const p = args.profile || {};
+    const lines = cands.map((c, i) => `${i + 1}. [${c.id}] ${String(c.title || '').slice(0, 110)} — ${String(c.channel || '').slice(0, 40)}${c.minutes ? ` (${c.minutes} min)` : ''}${c.desc ? ` :: ${String(c.desc).slice(0, 140)}` : ''}`);
+    const text = [
+      `Taste (from ${p.videos || 0} watched videos): topics — ${(p.terms || []).join(', ')}; favourite channels — ${(p.channels || []).map((c) => `${c.name} (${c.count})`).join(', ')}; typical length — ${p.medianMin || '?'} min.`,
+      `Pick ${args.count || 3} videos. Write "why" in ${args.language || 'English'}.`,
+      '',
+      'Candidates:',
+      ...lines,
+    ].join('\n');
+    const out = await generateSmart({ ...args, system: TASTE_PROMPT, parts: [{ text }], schema: TASTE_SCHEMA, temperature: 0.3 });
+    const T = root.YFS && root.YFS.taste;
+    const ids = cands.map((c) => c.id);
+    const picks = T ? T.normalizePicks(out.data, ids, args.count || 3) : [];
+    return { picks, model: out.model, tried: out.tried };
+  }
+
+  // ---------- 🔀 порядок треков в очереди ----------
+
+  const ORDER_SCHEMA = {
+    type: 'OBJECT',
+    properties: { order: { type: 'ARRAY', items: { type: 'INTEGER' } } },
+    required: ['order'],
+  };
+
+  const ORDER_PROMPT = [
+    'You arrange a listening queue of music tracks into a pleasant order.',
+    'Input: a numbered list of tracks (number, title, channel). Output: the numbers in the order they should be played, each number exactly once.',
+    'Rules: open with a strong, catchy or well-known track; avoid two tracks by the same artist in a row; alternate energy and mood (calm after intense, then build up again); keep a loose feeling of flow — similar genre and language together, but not in long blocks; put long mixes and sets last.',
+    'Do not explain anything: return only the JSON.',
+  ].join('\n');
+
+  /**
+   * Ответ модели → порядок индексов без дыр и повторов: лишние и чужие номера выбрасываются,
+   * пропущенные дописываются в исходном порядке. Всегда перестановка 0..n-1.
+   */
+  function normalizeOrder(order, n) {
+    const seen = new Set();
+    const out = [];
+    for (const raw of Array.isArray(order) ? order : []) {
+      const i = Number(raw);
+      if (Number.isInteger(i) && i >= 0 && i < n && !seen.has(i)) {
+        seen.add(i);
+        out.push(i);
+      }
+    }
+    for (let i = 0; i < n; i++) if (!seen.has(i)) out.push(i);
+    return out;
+  }
+
+  /** tracks: [{ id, title, channel }] → { ids: [...в новом порядке], model }. До 200 треков за запрос. */
+  async function orderTracks(args) {
+    const tracks = (args.tracks || []).slice(0, 200);
+    const text = tracks.map((t, i) => `${i}. ${String(t.title || '').slice(0, 110)} — ${String(t.channel || '').slice(0, 50)}`).join('\n');
+    const out = await generateSmart({ ...args, system: ORDER_PROMPT, parts: [{ text }], schema: ORDER_SCHEMA, temperature: 0.7 });
+    const order = normalizeOrder(out.data && out.data.order, tracks.length);
+    return { ids: order.map((i) => tracks[i].id), model: out.model, tried: out.tried };
+  }
+
+  // ---------- 🧠 ремонт парсера: «рецепт» разбора нового формата карточек ----------
+
+  const RECIPE_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+      renderer: { type: 'STRING' },
+      fields: {
+        type: 'OBJECT',
+        properties: {
+          id: { type: 'STRING' },
+          title: { type: 'STRING' },
+          channel: { type: 'STRING' },
+          duration: { type: 'STRING' },
+          views: { type: 'STRING' },
+          published: { type: 'STRING' },
+          short: { type: 'STRING' },
+        },
+        required: ['id', 'title'],
+      },
+      notes: { type: 'STRING' },
+    },
+    required: ['renderer', 'fields'],
+  };
+
+  const REPAIR_PROMPT = [
+    'You repair a parser of YouTube’s internal JSON (InnerTube). YouTube changed the format of video cards and the parser stopped finding them.',
+    'You get the key name and a trimmed JSON skeleton of several video cards (long strings are cut, arrays are shortened), plus the video ids known to be inside them.',
+    'Return a recipe: "renderer" — the JSON key whose value is one video card (the same key for all cards); "fields" — paths inside that value to each field.',
+    'Path syntax: dot-separated keys relative to the card value; array index in brackets, e.g. metadata.rows[0].parts[1].text; [*] means “the first array element for which the rest of the path is non-empty”, e.g. badges[*].text.',
+    'A path may end at a string, a number, or a text object ({content}, {simpleText} or {runs}) — the parser reads all of them.',
+    '"id" must lead to the 11-character video id. "title", "channel", "duration" (like 12:34 or seconds), "views", "published" (like “3 days ago”) — empty string if absent.',
+    '"short" — a path that exists only for Shorts cards (e.g. a reelWatchEndpoint), or an empty string.',
+    'Use only keys that really exist in the skeletons. Do not output code. "notes" — one short sentence about what changed.',
+  ].join('\n');
+
+  /** Рецепт от модели (с балансировкой). cards: [{ key, skeleton }], ids — какие id в них лежат. Ответ: { recipe, model, tried }. */
+  async function repairRecipe(args) {
+    const text = [
+      `Feed: ${args.page || 'unknown'}.`,
+      `Video ids inside the cards: ${(args.ids || []).slice(0, 20).join(', ')}.`,
+      'Cards:',
+      ...(args.cards || []).map((c, i) => `#${i + 1} key "${c.key}":\n${JSON.stringify(c.skeleton)}`),
+    ].join('\n');
+    const out = await generateSmart({ ...args, system: REPAIR_PROMPT, parts: [{ text }], schema: RECIPE_SCHEMA, temperature: 0 });
+    const d = out.data || {};
+    const f = (d.fields && typeof d.fields === 'object' && d.fields) || {};
+    const pick = (k) => (typeof f[k] === 'string' ? f[k].trim() : '');
+    const recipe = {
+      renderer: String(d.renderer || '').trim(),
+      fields: { id: pick('id'), title: pick('title'), channel: pick('channel'), duration: pick('duration'), views: pick('views'), published: pick('published') },
+      short: pick('short'),
+      notes: typeof d.notes === 'string' ? d.notes.trim() : '',
+    };
+    return { recipe, model: out.model, tried: out.tried };
   }
 
   /** Сводка → текст для копирования и .txt. labels — подписи разделов на языке интерфейса. */
@@ -533,15 +747,42 @@
 
   const api = {
     DEFAULT_MODEL,
-    DEFAULT_PROMPT,
-    PRESETS,
+    /** Стандартный пресет на текущем языке интерфейса. */
+    get DEFAULT_PROMPT() {
+      return builtinPrompt('standard');
+    },
+    /** Встроенные пресеты на текущем языке интерфейса. */
+    get PRESETS() {
+      return Object.fromEntries(PRESET_IDS.map((id) => [id, builtinPrompt(id)]));
+    },
     PRESET_IDS,
+    PROMPT_FIELDS,
+    PROMPT_RULES,
     SCHEMA,
     builtinPrompt,
     presetList,
     presetText,
+    overridePatch,
+    languageName,
     promptFor,
     hashText,
+    callGemini,
+    generateJSON,
+    generateSmart,
+    balance,
+    FOCUS_ACTIONS,
+    FOCUS_STYLE_IDS,
+    FOCUS_KIND_IDS,
+    focusPrompt,
+    normalizeFocus,
+    focusPlan,
+    focusSavings,
+    normalizeOrder,
+    orderTracks,
+    tastePicks,
+    timeToSec,
+    RECIPE_SCHEMA,
+    repairRecipe,
     buildRequest,
     transcriptText,
     thinkingConfig,

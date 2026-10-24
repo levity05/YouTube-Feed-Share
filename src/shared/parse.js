@@ -247,11 +247,198 @@
   const PARSERS = {
     videoRenderer: fromVideoRenderer,
     gridVideoRenderer: fromVideoRenderer,
+    compactVideoRenderer: fromVideoRenderer, // боковая колонка рекомендаций (старый формат)
     playlistVideoRenderer: fromPlaylistVideo,
     lockupViewModel: fromLockup,
     reelItemRenderer: fromReelItem,
     shortsLockupViewModel: fromShortsLockup,
   };
+
+  // ---------- 🧠 выученные «рецепты»: ремонт парсера с помощью ИИ ----------
+  //
+  // Если YouTube ввёл новый формат карточек, общий поиск (extractGeneric) всё равно находит id, а основной
+  // парсер — нет. Тогда Gemini получает обрезанный «скелет» таких карточек и возвращает рецепт:
+  // ключ карточки и пути к полям. Это данные, а не код: рецепт исполняет getPath ниже, и прежде чем
+  // его принять, validateRecipe проверяет его на тех же ответах YouTube.
+
+  const learned = new Map(); // ключ карточки → рецепт
+
+  /** Подключить выученные рецепты (из chrome.storage). Известные форматы ими не перекрываются. */
+  function setLearned(list) {
+    learned.clear();
+    for (const r of list || []) if (r && r.renderer && !PARSERS[r.renderer] && r.fields && r.fields.id) learned.set(r.renderer, r);
+    return learned.size;
+  }
+
+  /** «a.b[0].c[*].d» → ['a', 'b', 0, 'c', '*', 'd']. */
+  function parsePath(path) {
+    const out = [];
+    for (const part of String(path || '').split('.')) {
+      const m = part.match(/^([^[\]]*)((?:\[(?:\d+|\*)\])*)$/);
+      if (!m) return null;
+      if (m[1]) out.push(m[1]);
+      for (const ix of m[2].match(/\[(\d+|\*)\]/g) || []) out.push(ix === '[*]' ? '*' : Number(ix.slice(1, -1)));
+    }
+    return out;
+  }
+
+  function valueText(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return String(v);
+    return text(v);
+  }
+
+  /** Значение по пути рецепта; [*] — первый элемент массива, для которого остаток пути не пуст. */
+  function getPath(node, path) {
+    const tokens = parsePath(path);
+    if (!tokens || !tokens.length) return undefined;
+    const go = (n, i) => {
+      if (i === tokens.length) return n;
+      if (n === null || n === undefined || typeof n !== 'object') return undefined;
+      const tk = tokens[i];
+      if (tk === '*') {
+        if (!Array.isArray(n)) return undefined;
+        for (const x of n) {
+          const v = go(x, i + 1);
+          if (valueText(v)) return v;
+        }
+        return undefined;
+      }
+      if (typeof tk === 'number') return Array.isArray(n) ? go(n[tk], i + 1) : undefined;
+      return go(n[tk], i + 1);
+    };
+    return go(node, 0);
+  }
+
+  function fromRecipe(node, recipe) {
+    const f = recipe.fields || {};
+    const val = (p) => (p ? valueText(getPath(node, p)) : '');
+    const id = val(f.id);
+    if (!ID_RE.test(id)) return null;
+    let duration = val(f.duration);
+    if (/^\d+$/.test(duration)) duration = formatSeconds(duration);
+    if (duration && !DURATION_RE.test(duration)) duration = '';
+    return {
+      id,
+      title: val(f.title),
+      channel: val(f.channel),
+      duration,
+      views: val(f.views),
+      published: val(f.published),
+      short: !!(recipe.short && getPath(node, recipe.short) !== undefined),
+    };
+  }
+
+  const CARD_KEY_RE = /(Renderer|ViewModel)$/;
+  // Обёртки списков и полок: карточкой они не бывают, даже если внутри один ролик.
+  const WRAPPER_KEYS = new Set(['richItemRenderer', 'richSectionRenderer', 'itemSectionRenderer', 'sectionListRenderer', 'shelfRenderer', 'richShelfRenderer',
+    'gridRenderer', 'horizontalListRenderer', 'expandedShelfContentsRenderer', 'reelShelfRenderer', 'twoColumnBrowseResultsRenderer', 'tabRenderer',
+    'richGridRenderer', 'continuationItemRenderer', 'appendContinuationItemsAction', 'reloadContinuationItemsCommand', 'thumbnailViewModel',
+    'contentImage', 'thumbnailOverlayViewModel', 'avatarViewModel', 'decoratedAvatarViewModel']);
+
+  /** Разные id роликов в поддереве (до limit). */
+  function idsIn(node, limit = 3, out = new Set(), depth = 0) {
+    if (!node || typeof node !== 'object' || depth > 30 || out.size >= limit) return out;
+    if (Array.isArray(node)) {
+      for (const x of node) idsIn(x, limit, out, depth + 1);
+      return out;
+    }
+    if (typeof node.videoId === 'string' && ID_RE.test(node.videoId)) out.add(node.videoId);
+    if (node.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO' && ID_RE.test(node.contentId || '')) out.add(node.contentId);
+    for (const k of Object.keys(node)) if (out.size < limit) idsIn(node[k], limit, out, depth + 1);
+    return out;
+  }
+
+  /**
+   * Карточки нового формата вокруг id, которые основной парсер не нашёл: для каждого id — самый внешний
+   * объект с ключом «…Renderer» / «…ViewModel», внутри которого только этот ролик (не обёртка списка).
+   * Ответ: до max карточек одного, самого частого ключа: [{ key, node, id }].
+   */
+  function findCards(datas, ids, max = 3) {
+    const want = new Set(ids || []);
+    const found = [];
+    const seen = new Set();
+    const visit = (node, stack, depth) => {
+      if (!node || typeof node !== 'object' || depth > 60) return;
+      if (Array.isArray(node)) {
+        for (const x of node) visit(x, stack, depth + 1);
+        return;
+      }
+      const vid = typeof node.videoId === 'string' ? node.videoId : node.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO' ? node.contentId : '';
+      if (vid && want.has(vid) && !seen.has(vid)) {
+        for (const entry of stack) {
+          if (!CARD_KEY_RE.test(entry.key) || WRAPPER_KEYS.has(entry.key) || PARSERS[entry.key]) continue;
+          if (idsIn(entry.node).size <= 1) {
+            seen.add(vid);
+            found.push({ key: entry.key, node: entry.node, id: vid });
+            break;
+          }
+        }
+      }
+      for (const k of Object.keys(node)) {
+        if (SKIP_KEY_RE.test(k)) continue;
+        const v = node[k];
+        if (v && typeof v === 'object') {
+          stack.push({ key: k, node: v });
+          visit(v, stack, depth + 1);
+          stack.pop();
+        }
+      }
+    };
+    for (const d of datas || []) visit(d, [], 0);
+    const byKey = new Map();
+    for (const c of found) byKey.set(c.key, [...(byKey.get(c.key) || []), c]);
+    const best = Array.from(byKey.values()).sort((a, b) => b.length - a.length)[0] || [];
+    return best.slice(0, max);
+  }
+
+  const SKELETON_DROP = /^(trackingParams|clickTrackingParams|loggingDirectives|loggingContext|visibleTrackingParams|impressionLoggingInfo|serializedShareEntity|accessibilityContext)$/;
+
+  /** Обрезанная копия карточки для модели: строки до 60 знаков, массивы до 3 элементов, без служебных полей. */
+  function skeleton(node, depth = 0, budget = { n: 0 }) {
+    if (budget.n > 7000) return '…';
+    if (typeof node === 'string') {
+      budget.n += Math.min(node.length, 60) + 4;
+      return node.length > 60 ? node.slice(0, 57) + '…' : node;
+    }
+    if (!node || typeof node !== 'object') return node;
+    if (depth > 18) return '…';
+    if (Array.isArray(node)) return node.slice(0, 3).map((x) => skeleton(x, depth + 1, budget));
+    const out = {};
+    for (const k of Object.keys(node)) {
+      if (SKELETON_DROP.test(k)) continue;
+      budget.n += k.length + 3;
+      out[k] = skeleton(node[k], depth + 1, budget);
+    }
+    return out;
+  }
+
+  /**
+   * Проверить рецепт на тех же ответах YouTube: находит ли он пропавшие ролики (missing), есть ли названия,
+   * не тащит ли лишнего (всё найденное должно быть среди id общего поиска — known).
+   * Ответ: { ok, found, total, produced, titled, videos }.
+   */
+  function validateRecipe(recipe, datas, missing, known) {
+    if (!recipe || !recipe.renderer || !recipe.fields || !recipe.fields.id || PARSERS[recipe.renderer]) return { ok: false, found: 0, total: (missing || []).length, produced: 0, titled: 0, videos: [] };
+    const saved = new Map(learned);
+    learned.clear();
+    learned.set(recipe.renderer, recipe);
+    const videos = [];
+    try {
+      for (const d of datas || []) videos.push(...extractVideos(d).filter((v) => v.source === 'recipe:' + recipe.renderer));
+    } finally {
+      learned.clear();
+      for (const [k, v] of saved) learned.set(k, v);
+    }
+    const ids = new Set(videos.map((v) => v.id));
+    const want = new Set(missing || []);
+    const allowed = new Set([...(known || []), ...want]);
+    const found = [...want].filter((id) => ids.has(id)).length;
+    const titled = videos.filter((v) => v.title).length;
+    const stray = [...ids].filter((id) => !allowed.has(id)).length;
+    const ok = want.size > 0 && found >= Math.min(3, want.size) && found >= want.size * 0.5 && titled >= videos.length * 0.7 && stray <= Math.max(1, ids.size * 0.1);
+    return { ok, found, total: want.size, produced: ids.size, titled, videos };
+  }
 
   /** Подпись секции истории («Сегодня», «Вчера», «3 окт.») — ищем первое поле title в заголовке. */
   function headerLabel(header, depth = 0) {
@@ -279,12 +466,13 @@
     for (const key of Object.keys(node)) {
       const value = node[key];
       if (!value || typeof value !== 'object' || SKIP_KEY_RE.test(key)) continue;
-      const parser = PARSERS[key];
+      const recipe = !PARSERS[key] && learned.get(key);
+      const parser = PARSERS[key] || (recipe ? (v) => fromRecipe(v, recipe) : null);
       if (parser) {
         const video = parser(value);
         if (video) {
           if (day) video.dayLabel = day;
-          video.source = 'renderer:' + key;
+          video.source = (recipe ? 'recipe:' : 'renderer:') + key;
           video.url = rawUrl(value, video.id) || canonicalPath(video);
           out.push(video);
         }
@@ -613,6 +801,14 @@
     scrapeLinks,
     parseDayLabel,
     text,
+    setLearned,
+    getPath,
+    findCards,
+    skeleton,
+    validateRecipe,
+    get learnedCount() {
+      return learned.size;
+    },
   };
   root.YFS = root.YFS || {};
   root.YFS.parse = api;

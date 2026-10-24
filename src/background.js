@@ -8,7 +8,7 @@
  *    просмотрщик показывает во фрейме обычную страницу ролика, а здесь с неё снимается
  *    запрет на показ во фрейме — только для фреймов самого расширения.
  */
-importScripts('shared/i18n.js', 'locales/en.js', 'shared/feed.js', 'shared/ai.js');
+importScripts('shared/i18n.js', 'locales/en.js', 'shared/feed.js', 'shared/taste.js', 'shared/ai.js', 'shared/lyrics.js', 'shared/emotes.js');
 
 const F = self.YFS.feed;
 const AI = self.YFS.ai;
@@ -40,6 +40,98 @@ const PAGE_URLS = {
   history: 'https://www.youtube.com/feed/history',
   shorts: 'https://www.youtube.com/shorts',
 };
+
+// ---------- смайлики 7TV / BetterTTV / FrankerFaceZ ----------
+
+const EMOTE_CACHE = 'yfs_emotes_cache';
+const EMOTE_TTL = 3 * 24 * 3600 * 1000;
+
+async function emoteJson(url, init) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(url, { ...(init || {}), signal: ctrl.signal, credentials: 'omit' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Один набор → [[имя, адрес, анимированный]]. Ивентовские наборы — поиск по 7TV по нескольким словам, самые популярные. */
+async function fetchEmotePack(id) {
+  const E = self.YFS.emotes;
+  if (id.startsWith('custom:')) return E.parseStvSet(await emoteJson(E.API.stvSet(id.slice(7))));
+  if (id.startsWith('q:')) {
+    // «самые популярные по слову» — как у ивентовских наборов, но слово своё
+    return E.parseStvSearch(await emoteJson(E.API.stvGql, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: E.stvSearchBody(id.slice(2), 100) }));
+  }
+  const pack = E.PACKS.find((p) => p.id === id);
+  if (!pack) return [];
+  if (pack.kind === 'stv-set') return E.parseStvSet(await emoteJson(E.API.stvSet(pack.setId)));
+  if (pack.kind === 'bttv') return E.parseBttv(await emoteJson(E.API.bttvGlobal));
+  if (pack.kind === 'ffz') return E.parseFfz(await emoteJson(E.API.ffzGlobal));
+  const lists = [];
+  for (const term of pack.terms) {
+    try {
+      lists.push(E.parseStvSearch(await emoteJson(E.API.stvGql, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: E.stvSearchBody(term) })));
+    } catch {
+      /* это слово не нашлось — берём остальные */
+    }
+  }
+  return E.merge(lists);
+}
+
+/** Поиск стримера на 7TV по имени (один-два запроса): у кого есть набор смайликов, с названием набора и числом смайликов. */
+const EMOTE_FIND = new Map();
+async function findEmoteUsers(queries) {
+  const E = self.YFS.emotes;
+  const post = (body) => emoteJson(E.API.stvGql, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  const found = new Map();
+  for (const q of queries) {
+    const key = q.toLowerCase();
+    let users = EMOTE_FIND.get(key);
+    if (!users || Date.now() - users.at > 10 * 60000) {
+      const list = E.parseStvUsers(await post(E.stvUsersBody(q))).slice(0, 10);
+      if (list.length) {
+        const info = E.parseStvSetInfo(await post(E.stvSetsBody([...new Set(list.map((u) => u.setId))])));
+        for (const u of list) Object.assign(u, { setName: (info[u.setId] || {}).name || '', count: (info[u.setId] || {}).count || 0 });
+      }
+      users = { at: Date.now(), list: list.filter((u) => u.count > 0) };
+      if (EMOTE_FIND.size > 40) EMOTE_FIND.clear();
+      EMOTE_FIND.set(key, users);
+    }
+    for (const u of users.list) if (!found.has(u.user)) found.set(u.user, u);
+  }
+  return Array.from(found.values()).slice(0, 12);
+}
+
+async function loadEmoteSets(ids, force) {
+  const { [EMOTE_CACHE]: cache = {} } = await chrome.storage.local.get(EMOTE_CACHE);
+  const out = {};
+  let dirty = false;
+  await Promise.all(
+    ids.map(async (id) => {
+      const c = cache[id];
+      if (!force && c && Date.now() - c.at < EMOTE_TTL) {
+        out[id] = c.list;
+        return;
+      }
+      try {
+        const list = await fetchEmotePack(id);
+        if (list.length) {
+          cache[id] = { at: Date.now(), list };
+          dirty = true;
+        }
+        out[id] = list.length ? list : c ? c.list : [];
+      } catch {
+        out[id] = c ? c.list : []; // сеть недоступна — показываем, что было
+      }
+    })
+  );
+  if (dirty) await chrome.storage.local.set({ [EMOTE_CACHE]: cache });
+  return out;
+}
 
 // ---------- плеер просмотрщика: страница ролика во фрейме ----------
 
@@ -189,7 +281,9 @@ async function checkHealth(page, res) {
     yfs_health[type] = { found: s.found, target: s.target, at: Date.now() };
   }
   await chrome.storage.local.set({ yfs_health });
-  return reasons.length ? { page, reasons: [...new Set(reasons)], idOnly, recovered: (res.health && res.health.recovered) || 0 } : null;
+  const ai = res.health && res.health.ai; // ремонт парсера с помощью ИИ: fixed | failed
+  if (!reasons.length && !(ai && ai.status === 'fixed')) return null;
+  return { page, reasons: [...new Set(reasons)], idOnly, recovered: (res.health && res.health.recovered) || 0, ai: ai || null };
 }
 
 function makePlan(sources) {
@@ -266,9 +360,21 @@ async function runJob(options, tabId) {
       lang: options.lang,
       feeds,
     });
-    await chrome.storage.local.set({ yfs_last: { snap, stats, collectedAt: Date.now() } });
+    if (options.target === 'taste') {
+      // История для подборки по вкусу — отдельно от последнего снимка (он нужен для обмена и не должен затираться).
+      const hist = (snap.feeds.find((f) => f.type === 'history') || { videos: [] }).videos;
+      await chrome.storage.local.set({ yfs_taste_history: { videos: hist.slice(0, 200), collectedAt: Date.now() } });
+    } else await chrome.storage.local.set({ yfs_last: { snap, stats, collectedAt: Date.now() } });
     job.state.result = F.counts(snap);
     setBadge('✓', '#2ba640');
+    // После сбора возвращаем вкладку туда, откуда начали (подборка по вкусу продолжится сама).
+    if (options.returnUrl && /^https:\/\/www\.youtube\.com\//.test(String(options.returnUrl)) && job.tabId) {
+      try {
+        await chrome.tabs.update(job.tabId, { url: String(options.returnUrl) });
+      } catch {
+        /* вкладку закрыли */
+      }
+    }
   } catch (err) {
     job.state.error = err.message;
     setBadge('!', '#cc0000');
@@ -299,16 +405,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return;
   }
 
-  // AI-сводка для панели на странице ролика youtube.com: запрос к Gemini делаем отсюда,
-  // чтобы он не зависел от правил сайта YouTube.
-  // Балансировщик моделей (AI.summarizeSmart): ход — сообщениями во вкладку, «Отмена» — через yfs:ai-cancel.
-  if (msg.type === 'yfs:ai-summarize') {
+  // Запросы к Gemini со страницы youtube.com делаем отсюда, чтобы они не зависели от правил сайта YouTube.
+  // Балансировщик моделей: ход — сообщениями во вкладку (yfs:ai-progress), «Отмена» — через yfs:ai-cancel.
+  //   yfs:ai-summarize — сводка; yfs:ai-focus — план СДВГ-режима; yfs:ai-repair — рецепт для парсера.
+  const AI_TASKS = { 'yfs:ai-summarize': AI.summarizeSmart, 'yfs:ai-focus': AI.focusPlan, 'yfs:ai-repair': AI.repairRecipe, 'yfs:ai-order': AI.orderTracks, 'yfs:ai-taste': AI.tastePicks };
+  if (AI_TASKS[msg.type]) {
     const reqId = String(msg.reqId || '');
     const ctrl = new AbortController();
     aiRequests.set(reqId, ctrl);
     const tabId = sender.tab && sender.tab.id;
     const target = sender.frameId ? { frameId: sender.frameId } : undefined;
-    AI.summarizeSmart({
+    AI_TASKS[msg.type]({
       ...(msg.args || {}),
       fetchImpl: undefined,
       signal: ctrl.signal,
@@ -323,6 +430,73 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         (err) => sendResponse({ ok: false, code: err.code || 'ai-failed', message: err.message, tried: err.tried || [] })
       )
       .finally(() => aiRequests.delete(reqId));
+    return true;
+  }
+
+  // Тексты песен: LRCLIB и lyrics.ovh (открытые API без ключей). Запрос делает фоновый скрипт —
+  // страница youtube.com не может ходить на чужие адреса. Уходят только исполнитель, название и длина трека.
+  if (msg.type === 'yfs:lyrics') {
+    const info = msg.info && typeof msg.info === 'object' ? msg.info : {};
+    const fetchJson = async (url) => {
+      if (!/^https:\/\/(lrclib\.net|api\.lyrics\.ovh)\//.test(url)) return null;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 9000);
+      try {
+        const r = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' }, credentials: 'omit' });
+        return r.ok ? await r.json() : null;
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    self.YFS.lyrics
+      .lookup(fetchJson, {
+        artist: String(info.artist || '').slice(0, 200),
+        track: String(info.track || '').slice(0, 200),
+        query: String(info.query || '').slice(0, 300),
+        durationSec: Number(info.durationSec) || 0,
+      })
+      .then((out) => sendResponse({ ok: true, out }), () => sendResponse({ ok: true, out: null }));
+    return true;
+  }
+
+  // Смайлики 7TV / BetterTTV / FrankerFaceZ и ивентовские наборы: запросы делает фоновый скрипт, результат кэшируется
+  // на три дня (yfs_emotes_cache). Уходят только названия наборов и слова поиска («halloween»).
+  if (msg.type === 'yfs:emotes') {
+    const ids = (Array.isArray(msg.ids) ? msg.ids : []).map(String).filter((id) => /^(custom:[\w-]{8,40}|q:[\p{L}\p{N}_-]{2,30}|[a-z0-9-]{3,30})$/u.test(id)).slice(0, 24);
+    loadEmoteSets(ids, !!msg.force).then(
+      (sets) => sendResponse({ ok: true, sets }),
+      (err) => sendResponse({ ok: false, message: err.message })
+    );
+    return true;
+  }
+
+  // Поиск стримера на 7TV: уходит только название канала / слова, которые человек ввёл в поиск смайликов.
+  if (msg.type === 'yfs:emote-find') {
+    const queries = [...new Set((Array.isArray(msg.q) ? msg.q : [msg.q]).map((x) => String(x || '').trim().slice(0, 60)).filter((x) => x.length >= 2))].slice(0, 3);
+    if (!queries.length) {
+      sendResponse({ ok: true, users: [] });
+      return;
+    }
+    findEmoteUsers(queries).then(
+      (users) => sendResponse({ ok: true, users }),
+      (err) => sendResponse({ ok: false, message: err.message })
+    );
+    return true;
+  }
+
+  // Картинка смайлика как data:-адрес — запасной путь, если страница YouTube не разрешает грузить её с CDN напрямую.
+  if (msg.type === 'yfs:img') {
+    const url = String(msg.url || '');
+    if (!/^https:\/\/(cdn\.7tv\.app|cdn\.betterttv\.net|cdn\.frankerfacez\.com|cdn\.jsdelivr\.net)\//.test(url)) return;
+    fetch(url, { credentials: 'omit' })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const buf = new Uint8Array(await r.arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+        return `data:${r.headers.get('content-type') || 'image/webp'};base64,${btoa(bin)}`;
+      })
+      .then((dataUrl) => sendResponse({ ok: true, dataUrl }), () => sendResponse({ ok: false }));
     return true;
   }
 
@@ -354,7 +528,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: false, error: tr('collect.running') });
       return;
     }
-    runJob(msg.options || {}, msg.tabId);
+    runJob(msg.options || {}, msg.tabId || (sender.tab && sender.tab.id));
     sendResponse({ ok: true });
   } else if (msg.type === 'yfs:cancel') {
     if (job) {

@@ -157,14 +157,18 @@
     last = { id: '', t: -1 };
     checkResume();
   });
-  const timer = setInterval(() => {
-    if (!W.alive()) {
-      clearInterval(timer);
-      hidePrompt();
-      return;
-    }
-    // Фоновая вкладка тоже может играть (музыка, подкаст) — поэтому без проверки document.hidden.
-    if (location.pathname === '/watch') save(false);
-  }, 10000);
+  // Фоновая вкладка тоже может играть (музыка, подкаст) — поэтому задача тикает и в скрытой вкладке.
+  const stopLoop = YFS.loop.every(
+    10000,
+    () => {
+      if (!W.alive()) {
+        stopLoop();
+        hidePrompt();
+        return;
+      }
+      if (location.pathname === '/watch') save(false);
+    },
+    { hidden: true }
+  );
   YFS.i18n.init({ applyToPage: false }).then(checkResume, () => {});
 })();

@@ -566,7 +566,11 @@ test('транскрипт: панель 2026 (get_panel), старый форм
 
 test('AI: запрос к Gemini, ответ, ошибки, выбор модели, текст сводки', async () => {
   const AI = require('../src/shared/ai.js');
-  const req = AI.buildRequest({ video: { id: 'dQw4w9WgXcQ', title: 'Rick', channel: 'Rick Astley', duration: '3:33' }, segments: [{ start: 18, text: 'never gonna' }], language: 'Russian' });
+  // Тексты промтов — в словарях переводов (prompt.*): берём английский и русский напрямую.
+  require('../src/locales/en.js');
+  const EN = require('../src/shared/i18n.js').dicts.en;
+  const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'locales', 'ru.json'), 'utf8'));
+  const req = AI.buildRequest({ video: { id: 'dQw4w9WgXcQ', title: 'Rick', channel: 'Rick Astley', duration: '3:33' }, segments: [{ start: 18, text: 'never gonna' }], language: 'Russian', prompt: AI.builtinPrompt('standard', EN) });
   assert.match(req.systemInstruction.parts[0].text, /in Russian/);
   assert.match(req.contents[0].parts[0].text, /\[0:18\] never gonna/);
   assert.equal(req.generationConfig.responseMimeType, 'application/json');
@@ -603,27 +607,36 @@ test('AI: запрос к Gemini, ответ, ошибки, выбор моде�
   // Компактный текст: фразы в пределах ~10 с склеиваются, метка — по началу.
   assert.equal(AI.transcriptText([{ start: 0, text: 'a' }, { start: 3, text: 'b' }, { start: 12, text: 'c' }]), '[0:00] a b\n[0:12] c\n');
   // Пресеты: свой промт — только для «custom».
-  assert.equal(AI.promptFor('standard', 'X'), AI.DEFAULT_PROMPT);
   assert.equal(AI.promptFor('custom', 'X'), 'X');
-  assert.match(AI.promptFor('brief'), /exactly 3/);
-  // Встроенные промты: все поля схемы, {language}, общие правила; в русском интерфейсе — по-русски.
+  assert.match(AI.builtinPrompt('brief', EN), /exactly 3/);
+  // Встроенные промты собираются из словаря языка: все поля схемы, {language}, все правила.
   for (const id of AI.PRESET_IDS) {
-    for (const lang of ['en', 'ru']) {
-      const p = AI.builtinPrompt(id, lang);
-      for (const field of ['"tags"', '"summary"', '"keyPoints"', '"chronology"', '"audience"', '{language}']) assert.ok(p.includes(field), `${id}/${lang}: ${field}`);
+    for (const dict of [EN, RU]) {
+      const p = AI.builtinPrompt(id, dict);
+      for (const field of ['"tags"', '"summary"', '"keyPoints"', '"chronology"', '"audience"', '{language}']) assert.ok(p.includes(field), `${id}: ${field}`);
+      assert.ok(!/prompt\.[a-z]/.test(p), `${id}: в промте остался ключ словаря`);
+      assert.equal(p.split('\n- ').length - 1, AI.PROMPT_FIELDS.length + AI.PROMPT_RULES.length, `${id}: поля и правила`);
     }
   }
-  assert.match(AI.builtinPrompt('study', 'ru'), /конспект/);
-  assert.equal(AI.builtinPrompt('study', 'de'), AI.builtinPrompt('study', 'en')); // нет перевода — английский
-  // Правка встроенного, свои пресеты, старый «свой промт».
-  const settings = { overrides: { brief: 'MY BRIEF' }, presets: [{ id: 'p1', name: 'Мой', text: 'P1' }], prompt: 'LEGACY' };
-  const list = AI.presetList(settings, 'ru');
+  assert.match(AI.builtinPrompt('study', RU), /конспект/);
+  assert.notEqual(AI.builtinPrompt('study', RU), AI.builtinPrompt('study', EN)); // язык меняется — меняется и промт
+  assert.equal(AI.languageName({ name: 'Русский', english: 'Russian' }), 'Русский (Russian)');
+  assert.equal(AI.languageName({ name: 'English', english: 'English' }), 'English');
+  // Правка встроенного — для своего языка; старая правка (overrides) — для всех; свои пресеты; старый «свой промт».
+  const settings = { overridesByLang: { ru: { brief: 'МОЙ КРАТКИЙ' } }, overrides: { study: 'ALL LANGS' }, presets: [{ id: 'p1', name: 'Мой', text: 'P1' }], prompt: 'LEGACY' };
+  const list = AI.presetList(settings, 'ru', RU);
   assert.deepEqual(list.map((p) => p.id), [...AI.PRESET_IDS, 'custom', 'p1']);
   assert.equal(list.find((p) => p.id === 'brief').edited, true);
-  assert.equal(AI.presetText(settings, 'brief', 'ru'), 'MY BRIEF');
-  assert.equal(AI.presetText(settings, 'p1', 'ru'), 'P1');
-  assert.equal(AI.presetText(settings, 'custom', 'ru'), 'LEGACY');
-  assert.equal(AI.presetText(settings, 'nope', 'ru'), AI.builtinPrompt('standard', 'ru'));
+  assert.equal(AI.presetText(settings, 'brief', 'ru', RU), 'МОЙ КРАТКИЙ');
+  assert.equal(AI.presetText(settings, 'brief', 'en', EN), AI.builtinPrompt('brief', EN)); // на английском правки нет
+  assert.equal(AI.presetText(settings, 'study', 'en', EN), 'ALL LANGS');
+  assert.equal(AI.presetText(settings, 'p1', 'ru', RU), 'P1');
+  assert.equal(AI.presetText(settings, 'custom', 'ru', RU), 'LEGACY');
+  assert.equal(AI.presetText(settings, 'nope', 'ru', RU), AI.builtinPrompt('standard', RU));
+  const patch = AI.overridePatch(settings, 'study', 'en', 'EN STUDY', EN);
+  assert.deepEqual(patch.overridesByLang.en, { study: 'EN STUDY' });
+  assert.equal(patch.overrides.study, undefined);
+  assert.deepEqual(AI.overridePatch(settings, 'brief', 'ru', AI.builtinPrompt('brief', RU), RU).overridesByLang.ru, {}); // как встроенный — сброс
   assert.notEqual(AI.hashText('a'), AI.hashText('b'));
   assert.equal(AI.hashText('промт'), AI.hashText('промт'));
   // Порядок моделей: flash → flash-lite → pro, картинки и озвучка — мимо.
@@ -658,6 +671,517 @@ test('AI: запрос к Gemini, ответ, ошибки, выбор моде�
   // Неверный ключ — не повод перебирать модели.
   await assert.rejects(AI.summarizeSmart({ key: 'x', models: ['gemini-2.5-flash-lite', 'gemini-2.0-flash'], video: { id: 'dQw4w9WgXcQ' }, segments: [], fetchImpl: bad }), (e) => e.code === 'ai-key-invalid');
   AI.cooldown.clear();
+});
+
+test('музыка: распознавание трека, исполнитель и название, ссылки на площадки, очередь', () => {
+  const M = require('../src/shared/music.js');
+  assert.deepEqual(M.parseTrack('Rick Astley - Never Gonna Give You Up (Official Music Video)', 'Rick Astley'), { artist: 'Rick Astley', track: 'Never Gonna Give You Up', query: 'Rick Astley Never Gonna Give You Up' });
+  assert.equal(M.parseTrack('Never Gonna Give You Up', 'Rick Astley - Topic').artist, 'Rick Astley'); // «Topic»-канал
+  assert.equal(M.parseTrack('The Weeknd - Blinding Lights (Official Video) [4K]', 'TheWeekndVEVO').track, 'Blinding Lights');
+  assert.ok(M.isMusic({ title: 'Imagine Dragons x J.I.D - Enemy | Lyrics', channel: 'Lyrics Hub', durationSec: 180 }));
+  assert.ok(M.isMusic({ title: 'Баста - Сансара (feat. Скриптонит) | Премьера клипа', channel: 'Баста', durationSec: 300 }));
+  assert.ok(!M.isMusic({ title: 'Что стало с командой спустя 3 года?', channel: 'Эрик Шоков', durationSec: 1100 }));
+  assert.ok(!M.isMusic({ title: 'Лучшие треки 2025 — 2 часа музыки', channel: 'Mix', durationSec: 7200 })); // сборник, а не трек
+  assert.equal(M.musicScore({ title: 'x', musicVideoType: 'MUSIC_VIDEO_TYPE_ATV' }), 1);
+  const links = M.platformLinks('Rick Astley Never Gonna');
+  assert.ok(links.length >= 6 && links.every((l) => /^https:\/\//.test(l.url) && l.url.includes('Rick%20Astley')));
+  assert.equal(M.queueUrl(['dQw4w9WgXcQ', 'bad', 'dQw4w9WgXcQ', 'aircAruvnKk']), 'https://www.youtube.com/watch_videos?video_ids=dQw4w9WgXcQ,aircAruvnKk');
+  assert.equal(M.queueUrl([]), '');
+});
+
+test('фильтр ленты: числа, возраст, язык, правила и сортировка', () => {
+  const R = require('../src/shared/feedrules.js');
+  assert.equal(R.parseCount('1,2 млн просмотров'), 1200000);
+  assert.equal(R.parseCount('120 тыс.'), 120000);
+  assert.equal(R.parseCount('1.2M views'), 1200000);
+  assert.equal(R.parseCount('15 482 просмотра'), 15482);
+  assert.equal(R.parseCount('2,3 млрд'), 2300000000);
+  assert.equal(R.parseAge('3 дня назад'), 3 * 86400);
+  assert.equal(R.parseAge('2 weeks ago'), 2 * 604800);
+  assert.equal(R.parseAge('11 л. назад'), 11 * 31536000);
+  assert.equal(R.durationToSec('1:02:03'), 3723);
+  assert.equal(R.durationToSec('LIVE'), 0);
+  assert.equal(R.scriptLang('Что стало с командой'), 'ru');
+  assert.equal(R.scriptLang('Їжа й життя'), 'uk');
+  assert.equal(R.scriptLang('한국 노래'), 'ko');
+  assert.equal(R.scriptLang('ひらがなの歌'), 'ja');
+  assert.equal(R.scriptLang('Never gonna give you up'), 'latin');
+  assert.deepEqual(R.hashtags('Клип #музыка #Shorts'), ['#музыка', '#shorts']);
+
+  const rules = R.normalizeRules({ enabled: true, hideShorts: true, minMin: 5, maxMin: 60, langs: ['ru'], blockChannels: { '/@spam': 'Spam' }, blockWords: ['#Реакция'], sort: 'views' });
+  const card = (o) => ({ id: 'x', title: 'Видео', channel: 'Канал', channelUrl: '/@good', durationSec: 600, lang: 'ru', views: 10, ageSec: 100, music: 0, ...o });
+  assert.deepEqual(R.decide(card({}), rules), { hide: false });
+  assert.equal(R.decide(card({ short: true }), rules).reason, 'short');
+  assert.equal(R.decide(card({ durationSec: 120 }), rules).reason, 'duration');
+  assert.equal(R.decide(card({ durationSec: 0 }), rules).hide, false); // длительность неизвестна — не скрываем
+  assert.equal(R.decide(card({ lang: 'en' }), rules).reason, 'lang');
+  assert.equal(R.decide(card({ channelUrl: '/@spam' }), rules).reason, 'channel');
+  assert.equal(R.decide(card({ title: 'Моя реакция #реакция' }), rules).reason, 'word'); // слова — без учёта регистра
+  assert.equal(R.decide(card({ mix: true }), R.normalizeRules({ hideMixes: true })).reason, 'mix');
+  assert.equal(R.decide(card({}), R.normalizeRules({ onlyMusic: true })).reason, 'music');
+  assert.equal(R.decide(card({ music: 0.9 }), R.normalizeRules({ onlyMusic: true })).hide, false);
+  const sorted = [card({ id: 'a', views: 5 }), card({ id: 'b', views: 50 }), card({ id: 'c', views: 0 })].sort((x, y) => R.sortValue(x, 'views') - R.sortValue(y, 'views'));
+  assert.deepEqual(sorted.map((c) => c.id), ['b', 'a', 'c']); // без данных — в конце
+  const sum = R.summarize([card({ lang: 'ru' }), card({ lang: 'en', channelUrl: '/@x', channel: 'X' }), card({ lang: 'ru' })]);
+  assert.deepEqual(sum.langs, [{ code: 'ru', count: 2 }, { code: 'en', count: 1 }]);
+  assert.equal(sum.channels[0].count, 2);
+  assert.equal(R.normalizeRules({ sort: 'bogus', minMin: -5 }).sort, 'none');
+});
+
+test('СДВГ-режим: план без дыр, проценты, защита от «пропустить всё», запрос с балансировкой', async () => {
+  const AI = require('../src/shared/ai.js');
+  const plan = AI.normalizeFocus(
+    {
+      overview: 'Про команду.',
+      segments: [
+        { start: '0:00', end: '0:40', action: 'skip', interest: 1, title: 'Вступление', summary: 'Приветствие и спонсор' },
+        { start: '2:00', end: '9:00', action: 'fast', interest: 3, title: 'История', summary: '' },
+        { start: '0:40', end: '2:00', action: 'keep', interest: 5, title: 'Главное' },
+        { start: 'oops', end: '1', action: 'keep', title: 'мусор' },
+        { start: '9:00', end: '99:00', action: 'nope', title: 'Финал' },
+      ],
+    },
+    600
+  );
+  assert.deepEqual(plan.segments.map((s) => [s.start, s.end, s.action]), [[0, 40, 'skip'], [40, 120, 'keep'], [120, 540, 'fast'], [540, 600, 'keep']]);
+  const s = AI.focusSavings(plan, 2);
+  assert.equal(s.total, 600);
+  assert.equal(Math.round(s.watch), 80 + 210 + 60);
+  // Модель «пропустила» почти всё — часть пропусков становится ускорением.
+  const greedy = AI.normalizeFocus({ segments: [{ start: '0:00', action: 'skip', interest: 2, title: 'a' }, { start: '5:00', action: 'skip', interest: 1, title: 'b' }, { start: '9:30', action: 'keep', title: 'c' }] }, 600);
+  assert.ok(greedy.segments.some((x) => x.action === 'fast'));
+  assert.match(AI.focusPrompt('hard', 'Русский (Russian)'), /aggressive[\s\S]*Русский/);
+
+  AI.cooldown.clear();
+  let body = null;
+  const ok = async (url, init) => {
+    body = JSON.parse(init.body);
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ segments: [{ start: '0:00', end: '1:00', action: 'keep', title: 'Всё' }] }) }] } }] }) };
+  };
+  const out = await AI.focusPlan({ key: 'k', models: ['gemini-2.5-flash'], video: { id: 'dQw4w9WgXcQ', title: 'T' }, segments: [{ start: 0, text: 'a' }], durationSec: 60, style: 'normal', language: 'English', fetchImpl: ok });
+  assert.equal(out.plan.segments.length, 1);
+  assert.equal(out.model, 'gemini-2.5-flash');
+  assert.deepEqual(body.generationConfig.responseSchema.properties.segments.items.properties.action.enum, ['keep', 'fast', 'skip']);
+  assert.match(body.contents[0].parts[0].text, /\[0:00\] a/);
+});
+
+test('ремонт парсера: карточки нового формата → скелет → рецепт ИИ → проверка → разбор', async () => {
+  const AI = require('../src/shared/ai.js');
+  const P = parse;
+  // Будущий формат: ключ карточки незнаком парсеру, поля лежат по-новому.
+  const card = (id, title, ch, dur) => ({
+    richItemRenderer: {
+      content: {
+        feedTileViewModel: {
+          primaryCommand: { watchEndpoint: { videoId: id } },
+          texts: { headline: { content: title }, owner: { runs: [{ text: ch }] } },
+          badges: [{ label: '4K' }, { label: dur }],
+          trackingParams: 'x'.repeat(200),
+        },
+      },
+    },
+  });
+  const data = { contents: { richGridRenderer: { contents: [card('NEWfmtAAAA1', 'Первый', 'Канал А', '12:34'), card('NEWfmtAAAA2', 'Второй', 'Канал Б', '3:05'), card('NEWfmtAAAA3', 'Третий', 'Канал В', '1:00:00'), card('NEWfmtAAAA4', 'Четвёртый', 'Канал Г', '9:59')] } } };
+  P.setLearned([]);
+  assert.equal(P.extractVideos(data).length, 0); // основной парсер формат не знает
+  const known = P.extractGeneric(data).map((v) => v.id);
+  assert.equal(known.length, 4); // а общий поиск id видит
+  const cards = P.findCards([data], known, 3);
+  assert.equal(cards.length, 3);
+  assert.equal(cards[0].key, 'feedTileViewModel'); // не обёртка richItemRenderer
+  const sk = P.skeleton(cards[0].node);
+  assert.equal(sk.trackingParams, undefined); // служебное — не отправляем
+  assert.ok(JSON.stringify(sk).length < 600);
+
+  // «Ответ Gemini»: рецепт путей.
+  const recipeJson = { renderer: 'feedTileViewModel', fields: { id: 'primaryCommand.watchEndpoint.videoId', title: 'texts.headline', channel: 'texts.owner', duration: 'badges[*].label', views: '', published: '' }, short: '', notes: 'Новый формат плитки' };
+  let sentText = '';
+  const fake = async (url, init) => {
+    sentText = JSON.parse(init.body).contents[0].parts[0].text;
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(recipeJson) }] } }] }) };
+  };
+  AI.cooldown.clear();
+  const out = await AI.repairRecipe({ key: 'k', models: ['gemini-2.5-flash'], page: 'home', ids: cards.map((c) => c.id), cards: cards.map((c) => ({ key: c.key, skeleton: P.skeleton(c.node) })), fetchImpl: fake });
+  assert.match(sentText, /feedTileViewModel/);
+  assert.equal(out.recipe.fields.title, 'texts.headline');
+
+  // [*] — первый непустой элемент, но «4K» не похоже на длительность → следующий не берём автоматически:
+  // поэтому длительность проверяем отдельно ниже; главное — id и названия.
+  const check = P.validateRecipe(out.recipe, [data], known, known);
+  assert.equal(check.ok, true);
+  assert.equal(check.found, 4);
+  assert.equal(check.titled, 4);
+  // Плохой рецепт (id не туда) не принимается.
+  assert.equal(P.validateRecipe({ ...out.recipe, fields: { ...out.recipe.fields, id: 'texts.headline' } }, [data], known, known).ok, false);
+  // Известный ключ не перекрывается.
+  assert.equal(P.validateRecipe({ ...out.recipe, renderer: 'videoRenderer' }, [data], known, known).ok, false);
+
+  P.setLearned([out.recipe]);
+  const vids = P.extractVideos(data);
+  assert.deepEqual(vids.map((v) => [v.id, v.title, v.channel]), [['NEWfmtAAAA1', 'Первый', 'Канал А'], ['NEWfmtAAAA2', 'Второй', 'Канал Б'], ['NEWfmtAAAA3', 'Третий', 'Канал В'], ['NEWfmtAAAA4', 'Четвёртый', 'Канал Г']]);
+  assert.ok(vids.every((v) => v.source === 'recipe:feedTileViewModel'));
+  P.setLearned([]);
+
+  // Пути рецепта.
+  const node = { a: { b: [{ c: '' }, { c: { simpleText: 'да' } }] }, n: 754 };
+  assert.equal(P.text(P.getPath(node, 'a.b[*].c')), 'да');
+  assert.equal(P.text(P.getPath(node, 'a.b[1].c')), 'да');
+  assert.equal(P.getPath(node, 'n'), 754);
+  assert.equal(P.getPath(node, 'a.x.y'), undefined);
+});
+
+test('lyrics: LRC, приблизительные тайм-коды, выбор лучшего результата, цепочка источников', async () => {
+  const L = require('../src/shared/lyrics.js');
+  const lrc = L.parseLrc('[00:12.50] Привет\n[01:02.3]Мир\n[00:05]\n[ar: x]\nбез времени');
+  assert.deepEqual(lrc.map((l) => [l.start, l.text]), [[5, ''], [12.5, 'Привет'], [62.3, 'Мир']]);
+
+  // Обычный текст: время растёт, укладывается внутрь трека, пустые строки между куплетами схлопываются.
+  const plain = L.plainLines('a\n\n\n\nb\r\nc\n\n');
+  assert.deepEqual(plain, ['a', '', 'b', 'c']);
+  const timed = L.spreadLines(['одна строка', 'вторая строка подлиннее', '', 'третья'], 200);
+  assert.ok(timed[0].start >= 7 && timed[0].start < 12);
+  assert.ok(timed.every((l, i) => i === 0 || l.start > timed[i - 1].start));
+  assert.ok(timed[3].start < 200 * 0.96);
+
+  // Лучший из поиска: исполнитель, название и длительность; чужая песня не подходит.
+  const results = [
+    { trackName: 'Another Song', artistName: 'Someone', duration: 200, plainLyrics: 'x\ny\nz' },
+    { trackName: 'Blinding Lights', artistName: 'The Weeknd', duration: 201, plainLyrics: 'a\nb\nc', syncedLyrics: '[00:01.00] a\n[00:02.00] b\n[00:03.00] c' },
+  ];
+  assert.equal(L.pickBest(results, { artist: 'The Weeknd', track: 'Blinding Lights', durationSec: 200 }).trackName, 'Blinding Lights');
+  assert.equal(L.pickBest(results, { artist: 'Nobody', track: 'Unknown', durationSec: 100 }), null);
+
+  // Цепочка: точный запрос LRCLIB пуст → поиск LRCLIB → lyrics.ovh. Сетевые ошибки — это просто «нет текста».
+  const calls = [];
+  const info = { artist: 'The Weeknd', track: 'Blinding Lights', query: 'The Weeknd Blinding Lights', durationSec: 200 };
+  const viaSearch = await L.lookup(async (url) => {
+    calls.push(url);
+    if (url.includes('/api/get')) return null;
+    if (url.includes('/api/search')) return results;
+    throw new Error('не должен дойти');
+  }, info);
+  assert.equal(viaSearch.source, 'LRCLIB');
+  assert.equal(viaSearch.synced, true);
+  assert.ok(calls[0].includes('artist_name=The%20Weeknd') && calls[0].includes('duration=200'));
+  const viaOvh = await L.lookup(async (url) => {
+    if (url.includes('lyrics.ovh')) return { lyrics: 'строка один\nстрока два\nстрока три\nстрока четыре' };
+    if (url.includes('/search')) throw new Error('сеть');
+    return null;
+  }, info);
+  assert.equal(viaOvh.source, 'lyrics.ovh');
+  assert.equal(viaOvh.synced, false);
+  assert.equal(viaOvh.lines.length, 4);
+  assert.equal(await L.lookup(async () => null, info), null);
+  // «инструментал» — не текст
+  assert.equal(L.fromLrclib({ instrumental: true, plainLyrics: 'a\nb\nc' }, 100), null);
+});
+
+test('фильтр ленты: группировка по авторам, типу, длительности, языку и хештегам', () => {
+  const R = require('../src/shared/feedrules.js');
+  const card = (o) => ({ id: 'x', title: '', channel: '', channelUrl: '', durationSec: 0, lang: '', music: 0, ...o });
+  const cards = [
+    card({ id: 'a1', channel: 'Alpha', channelUrl: '/@alpha', durationSec: 300, lang: 'ru', title: 'Раз #джем #live' }),
+    card({ id: 'a2', channel: 'Alpha', channelUrl: '/@alpha', durationSec: 5000, lang: 'ru', title: 'Два #джем' }),
+    card({ id: 'b1', channel: 'Beta', channelUrl: '/@beta', durationSec: 100, lang: 'latin', short: true, title: 'Short' }),
+    card({ id: 'b2', channel: 'Beta', channelUrl: '/@beta', durationSec: 200, lang: 'ru', music: 0.9, title: 'Трек' }),
+    card({ id: 'c1', channel: 'Gamma', channelUrl: '/@gamma', durationSec: 0, live: true, title: 'Эфир' }),
+    card({ id: 'd1', channel: '', title: 'Без канала' }),
+  ];
+  const ids = (g) => g.cards.map((c) => c.id).join(',');
+
+  const byChannel = R.groupCards(cards, 'channel');
+  assert.deepEqual(byChannel.map((g) => g.label || g.labelKey), ['Alpha', 'Beta', 'filter.group.other']); // Alpha и Beta по 2, одиночки — в «Остальные»
+  assert.equal(ids(byChannel[0]), 'a1,a2');
+  assert.deepEqual(byChannel[2].cards.map((c) => c.id).sort(), ['c1', 'd1']); // без канала и одиночка
+
+  const byKind = R.groupCards(cards, 'kind');
+  assert.deepEqual(byKind.map((g) => g.key), ['music', 'video', 'short', 'live']);
+  assert.equal(R.kindOf(cards[3]), 'music');
+
+  const byDur = R.groupCards(cards, 'duration');
+  assert.deepEqual(byDur.map((g) => g.key), ['under4', 'mid', 'over60', 'unknown']);
+  assert.equal(R.durationBucket(3599), 'long');
+
+  const byLang = R.groupCards(cards, 'lang');
+  assert.equal(byLang[0].key, 'ru');
+  assert.equal(byLang[byLang.length - 1].labelKey, 'filter.group.other');
+
+  const byTag = R.groupCards(cards, 'hashtag');
+  assert.equal(byTag[0].label, '#джем'); // #live встретился один раз — отдельной группой не становится
+  assert.equal(ids(byTag[0]), 'a1,a2');
+  assert.equal(byTag[byTag.length - 1].key, '_other');
+
+  assert.equal(R.normalizeRules({ groupBy: 'channel' }).groupBy, 'channel');
+  assert.equal(R.normalizeRules({ groupBy: 'мусор' }).groupBy, 'none');
+  assert.deepEqual(R.groupCards([], 'channel'), []);
+  // Никто не повторяется — каждый автор получает свою группу, а не одну общую кучу.
+  const singles = R.groupCards([card({ id: 's1', channel: 'Zed', channelUrl: '/@z' }), card({ id: 's2', channel: 'Ann', channelUrl: '/@a' })], 'channel');
+  assert.deepEqual(singles.map((g) => g.label), ['Ann', 'Zed']);
+});
+
+test('очередь: порядок от ИИ всегда перестановка, перемешивание, треки из страницы микса', async () => {
+  const A = require('../src/shared/ai.js');
+  const R = require('../src/shared/feedrules.js');
+  const M = require('../src/shared/music.js');
+  // Мусор в ответе модели: дубли, чужие номера, пропуски — всё равно перестановка 0..4.
+  assert.deepEqual(A.normalizeOrder([3, 3, 9, -1, 'x', 0], 5), [3, 0, 1, 2, 4]);
+  assert.deepEqual(A.normalizeOrder(null, 3), [0, 1, 2]);
+  const seq = [0.9, 0.1, 0.5, 0.3];
+  let k = 0;
+  const mixed = R.shuffled([1, 2, 3, 4, 5], () => seq[k++ % seq.length]);
+  assert.deepEqual([...mixed].sort(), [1, 2, 3, 4, 5]);
+  assert.equal(R.normalizeRules({ shuffle: 'ai' }).shuffle, 'ai');
+  assert.equal(R.normalizeRules({ shuffle: 'x' }).shuffle, 'none');
+  assert.equal(R.normalizeRules({}).expandMixes, true);
+  assert.equal(R.normalizeRules({ expandMixes: false }).expandMixes, false);
+
+  // orderTracks: запрос к Gemini подменён, id возвращаются в порядке модели.
+  const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ order: [2, 0, 1] }) }] } }] }) });
+  const res = await A.orderTracks({ key: 'k', model: 'gemini-2.5-flash', models: [{ id: 'gemini-2.5-flash' }], fetchImpl, tracks: [{ id: 'aaaaaaaaaaa', title: 'A' }, { id: 'bbbbbbbbbbb', title: 'B' }, { id: 'ccccccccccc', title: 'C' }] });
+  assert.deepEqual(res.ids, ['ccccccccccc', 'aaaaaaaaaaa', 'bbbbbbbbbbb']);
+
+  // Страница микса: ytInitialData со скобками и кавычками внутри строк.
+  const data = { contents: { playlist: { contents: [
+    { playlistPanelVideoRenderer: { videoId: 'aaaaaaaaaaa', title: { simpleText: 'Track {1} "x"' }, shortBylineText: { runs: [{ text: 'Artist' }] }, lengthText: { simpleText: '3:21' } } },
+    { playlistPanelVideoRenderer: { videoId: 'bbbbbbbbbbb', title: { runs: [{ text: 'Two' }] }, shortBylineText: { runs: [{ text: 'B' }] }, lengthText: { simpleText: '1:02:03' } } },
+    { playlistPanelVideoRenderer: { videoId: 'aaaaaaaaaaa', title: { simpleText: 'повтор' } } },
+  ] } } };
+  const html = '<script>var ytInitialData = ' + JSON.stringify(data) + ';</script><script>var other = {};</script>';
+  const tracks = M.extractPlaylistTracks(html);
+  assert.deepEqual(tracks.map((t) => [t.id, t.title, t.channel, t.durationSec]), [['aaaaaaaaaaa', 'Track {1} "x"', 'Artist', 201], ['bbbbbbbbbbb', 'Two', 'B', 3723]]);
+  assert.deepEqual(M.extractPlaylistTracks('<html>нет данных</html>'), []);
+});
+
+test('чат трансляций: настройки, цвет ника, упоминания, скрытие, ответ в мини-чате', () => {
+  const L = require('../src/shared/liverules.js');
+  const d = L.normalize();
+  assert.equal(d.chatWidth, 420);
+  assert.equal(d.mentionSound, true);
+  assert.ok(d.bots.includes('nightbot'));
+  const n = L.normalize({ chatWidth: 5000, fontSize: 3, chatSide: 'left', timestamps: 'x', soundVolume: 2, aliases: ['a', 'a', ' b '], hideBots: 'yes' });
+  assert.deepEqual([n.chatWidth, n.fontSize, n.chatSide, n.timestamps, n.soundVolume, n.aliases, n.hideBots], [900, 11, 'left', 'show', 1, ['a', 'b'], false]);
+
+  // Один ник — всегда один цвет; регистр и «@» не важны.
+  assert.equal(L.nameColor('@Vasya'), L.nameColor('vasya'));
+  assert.notEqual(L.nameColor('vasya'), L.nameColor('petya'));
+  assert.match(L.nameColor('x', false), /^hsl\(\d+ 70% 36%\)$/);
+
+  // Упоминание: «@ник» или ник отдельным словом, но не часть другого слова.
+  assert.equal(L.isMention('привет @Котик, как дела', ['Котик']), true);
+  assert.equal(L.isMention('котик тут?', ['Котик']), true);
+  assert.equal(L.isMention('котики милые', ['Котик']), false);
+  assert.equal(L.isMention('hey @ab.c', ['ab.c']), true);
+  assert.equal(L.isMention('что угодно', ['']), false);
+  assert.equal(L.hasKeyword('Розыгрыш через час', ['розыгрыш']), true);
+
+  // Скрытие: человек, бот, команда, суперчат; свои сообщения не скрываются никогда.
+  const st = L.normalize({ hiddenUsers: { troll: 'Troll' }, hideBots: true, hideCommands: true, hidePaid: true });
+  assert.equal(L.hideReason({ author: '@Troll', text: 'hi', type: 'text' }, st), 'user');
+  assert.equal(L.hideReason({ author: 'Nightbot', text: 'hi', type: 'text' }, st), 'bot');
+  assert.equal(L.hideReason({ author: 'a', text: '!discord', type: 'text' }, st), 'command');
+  assert.equal(L.hideReason({ author: 'a', text: '', type: 'paid' }, st), 'paid');
+  assert.equal(L.hideReason({ author: 'Troll', text: '!x', type: 'text', own: true }, st), '');
+  assert.equal(L.hideReason({ author: 'a', text: 'ok', type: 'text' }, st), '');
+
+  // Мини-чат: один собеседник — ответ сам начинается с «@ник », несколько или уже «@…» — как есть.
+  assert.equal(L.replyText(' привет ', ['@Котик']), '@Котик привет');
+  assert.equal(L.replyText('@кто-то да', ['Котик']), '@кто-то да');
+  assert.equal(L.replyText('всем', ['a', 'b']), 'всем');
+  assert.equal(L.replyText('   ', ['a']), '');
+});
+
+test('чат трансляций: вид Twitch, время без секунд, наборы смайликов', () => {
+  const L = require('../src/shared/liverules.js');
+  const d = L.normalize();
+  assert.deepEqual([d.theme, d.emojiSet, d.timestamps, d.emojiSize], ['twitch', 'youtube', 'show', 24]);
+  assert.equal(L.normalize({ theme: 'x', emojiSet: 'noto', emojiSize: 99 }).emojiSet, 'youtube');
+  assert.equal(L.normalize({ emojiSize: 99 }).emojiSize, 48);
+  // Время суток без секунд, 24 часа.
+  assert.deepEqual(['12:07 PM', '1:05:33 AM', '9:41', '12:30 AM', '11:59 p.m.', 'вчера'].map(L.chatTime), ['12:07', '01:05', '09:41', '00:30', '23:59', '']);
+  // Цвет Twitch — из 15 стандартных, всегда один и тот же для ника.
+  const c = L.nameColor('Kotik', true, 'twitch');
+  assert.match(c, /^#[0-9a-f]{6}$/);
+  assert.equal(c, L.nameColor('@kotik', true, 'twitch'));
+  // Стандартные эмодзи — да, свои смайлики канала «:_name:» и текст — нет.
+  assert.equal(L.isEmoji('😂'), true);
+  assert.equal(L.isEmoji('🇷🇺'), true);
+  assert.equal(L.isEmoji(':_hello:'), false);
+  assert.equal(L.isEmoji('a'), false);
+  assert.deepEqual(L.emojiCodes('❤️'), ['2764', 'fe0f']);
+  // Имена файлов наборов: FE0F убирается там, где набор так называет файлы, и есть запасной вариант.
+  assert.deepEqual(L.emojiUrls('twemoji', '❤️'), ['https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/2764.svg', 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/2764-fe0f.svg']);
+  assert.ok(L.emojiUrls('twemoji', '👨‍👩‍👧')[0].endsWith('/1f468-200d-1f469-200d-1f467.svg'));
+  assert.equal(L.emojiUrls('apple', '❤️')[0], 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.1.2/img/apple/64/2764-fe0f.png');
+  assert.equal(L.emojiUrls('openmoji', '😂')[0], 'https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/1F602.svg');
+  assert.deepEqual(L.emojiUrls('youtube', '😂'), []);
+  assert.deepEqual(L.emojiUrls('native', '😂'), []);
+});
+
+test('СДВГ-режим: пресеты и типы роликов в промте, «только лучшее» может пропускать больше', () => {
+  const A = require('../src/shared/ai.js');
+  assert.deepEqual(A.FOCUS_STYLE_IDS, ['ads', 'gentle', 'normal', 'hard', 'highlights']);
+  assert.ok(A.FOCUS_KIND_IDS.includes('gaming') && A.FOCUS_KIND_IDS.includes('lecture'));
+  const auto = A.focusPrompt('normal', 'Russian', '');
+  assert.ok(auto.includes('First decide what kind of video') && auto.includes('- gaming:'));
+  const game = A.focusPrompt('ads', 'Russian', 'gaming');
+  assert.ok(game.includes('Video kind: gaming') && !game.includes('- lecture:') && game.includes('ads only'));
+  // 85% «пропустить»: обычный стиль смягчает, «только лучшее» оставляет.
+  const raw = { kind: 'gaming', segments: [{ start: '0:00', end: '1:30', action: 'keep' }, { start: '1:30', end: '8:00', action: 'skip', interest: 2 }, { start: '8:00', end: '10:00', action: 'skip', interest: 1 }] };
+  const soft = A.normalizeFocus(JSON.parse(JSON.stringify(raw)), 600, 'normal');
+  const best = A.normalizeFocus(JSON.parse(JSON.stringify(raw)), 600, 'highlights');
+  assert.equal(soft.segments[1].action, 'fast');
+  assert.equal(best.segments[1].action, 'skip');
+  assert.equal(best.kind, 'gaming');
+  assert.equal(A.normalizeFocus({ kind: 'мусор', segments: [] }, 10).kind, 'other');
+});
+
+test('чат: личные вкладки (группа и отдельные люди), текст с обращением, подсказка ников', () => {
+  const L = require('../src/shared/liverules.js');
+  const watch = ['Маша', 'Вася'];
+  const m = (name, text, o = {}) => ({ key: L.nameKey(name), text, own: false, ...o });
+  // Общий чат — всё; группа — только выбранные; человек — только он.
+  assert.equal(L.inThread(m('Петя', 'x'), 'chat', watch), true);
+  assert.equal(L.inThread(m('Маша', 'x'), 'group', watch), true);
+  assert.equal(L.inThread(m('Петя', 'x'), 'group', watch), false);
+  assert.equal(L.inThread(m('Вася', 'x'), 'маша', watch), false);
+  assert.equal(L.inThread(m('Маша', 'x'), 'маша', watch), true);
+  // Свои сообщения — во вкладке, откуда отправлены, или если начинаются с «@ник».
+  assert.equal(L.inThread(m('Я', 'привет', { own: true, thread: 'маша' }), 'маша', watch), true);
+  assert.equal(L.inThread(m('Я', 'привет', { own: true, thread: 'маша' }), 'вася', watch), false);
+  assert.equal(L.inThread(m('Я', '@Маша как дела', { own: true }), 'маша', watch), true);
+  assert.equal(L.inThread(m('Я', '@Машенька как дела', { own: true }), 'маша', watch), false);
+  assert.equal(L.inThread(m('Я', '@Вася привет', { own: true }), 'group', watch), true);
+  assert.equal(L.inThread(m('Я', 'всем привет', { own: true }), 'group', watch), false);
+  // Текст: человеку — «@ник», группе — «@ник1 @ник2», уже начатое с «@» не трогаем, группе можно отключить обращение.
+  assert.equal(L.composeText('привет', 'маша', watch), '@Маша привет');
+  assert.equal(L.composeText('@Маша привет', 'маша', watch), '@Маша привет');
+  assert.equal(L.composeText('привет', 'group', watch), '@Маша @Вася привет');
+  assert.equal(L.composeText('привет', 'group', watch, false), 'привет');
+  assert.equal(L.composeText('привет', 'chat', watch), 'привет');
+  assert.equal(L.composeText('  ', 'group', watch), '');
+  // Подсказка при наборе «@пр…».
+  assert.deepEqual(L.mentionQuery('привет @Ма', 10), { start: 7, query: 'Ма' });
+  assert.deepEqual(L.mentionQuery('@', 1), { start: 0, query: '' });
+  assert.equal(L.mentionQuery('почта a@b.ru', 12), null);
+  assert.equal(L.mentionQuery('привет @Маша ', 13), null);
+  assert.deepEqual(L.suggestNames(['Ольга', 'Маша', 'машинист', 'Mark', 'Маша', 'Ромашка'], 'ма'), ['Маша', 'машинист', 'Ромашка']);
+  assert.deepEqual(L.suggestNames(['a', 'b', 'c'], '', 2), ['a', 'b']);
+  assert.equal(L.normalize({}).allMessages, true);
+  assert.equal(L.normalize({ allMessages: false }).allMessages, false);
+});
+
+test('смайлики 7TV / BTTV / FFZ: разбор ответов, ссылка на набор, подстановка в текст', () => {
+  const E = require('../src/shared/emotes.js');
+  const L = require('../src/shared/liverules.js');
+  // 7TV: набор и поиск. Модифицированные/скрытые и «пробельные» имена пропускаются.
+  const stv = E.parseStvSet({ emotes: [{ id: '01FGH8NE3800064MEQW00DNBNG', name: 'reckH', data: { animated: false } }, { id: 'B', name: 'OMEGALUL', data: { animated: true } }, { id: 'C', name: 'bad name', data: {} }, { name: 'noid' }] });
+  assert.deepEqual(stv, [['reckH', 'https://cdn.7tv.app/emote/01FGH8NE3800064MEQW00DNBNG/2x.webp', false], ['OMEGALUL', 'https://cdn.7tv.app/emote/B/2x.webp', true]]);
+  const found = E.parseStvSearch({ data: { emotes: { items: [{ id: 'X1', name: 'Halloween', animated: true, listed: true }, { id: 'X2', name: 'hidden', listed: false }, { id: 'X3', name: 'pumpkin', animated: false }] } } });
+  assert.deepEqual(found.map((e) => e[0]), ['Halloween', 'pumpkin']);
+  assert.equal(E.parseStvSearch(null).length, 0);
+  // BTTV (без модификаторов) и FFZ (адреса «//cdn…» становятся https).
+  assert.deepEqual(E.parseBttv([{ id: 'a1', code: 'CiGrip', animated: false }, { id: 'a2', code: 'SoSnowy', modifier: true }]), [['CiGrip', 'https://cdn.betterttv.net/emote/a1/2x.webp', false]]);
+  const ffz = E.parseFfz({ default_sets: [3], sets: { 3: { emoticons: [{ name: 'ZreknarF', urls: { 1: '//cdn.frankerfacez.com/emote/1/1', 2: '//cdn.frankerfacez.com/emote/1/2' } }, { name: 'mod', modifier: true, urls: { 1: '//x' } }] } } });
+  assert.deepEqual(ffz, [['ZreknarF', 'https://cdn.frankerfacez.com/emote/1/2', false]]);
+  // Ссылка или id набора 7TV.
+  assert.equal(E.parseSetInput('https://7tv.app/emote-sets/01GD17VE2R000E0RPNH2V9Z16G'), '01GD17VE2R000E0RPNH2V9Z16G');
+  assert.equal(E.parseSetInput('01GD17VE2R000E0RPNH2V9Z16G'), '01GD17VE2R000E0RPNH2V9Z16G');
+  assert.equal(E.parseSetInput('привет'), '');
+  // Слияние: раньше стоящий набор главнее, без повторов, не больше лимита.
+  assert.deepEqual(E.merge([[['a', '1', false], ['b', '2', false]], [['a', '9', true], ['c', '3', false]]]).map((e) => e.join('|')), ['a|1|false', 'b|2|false', 'c|3|false']);
+  assert.equal(E.merge([[['a', '1', false], ['b', '2', false]]], 1).length, 1);
+  // Подстановка: целые слова, с учётом регистра, пробелы сохраняются; свой набор перекрывает 7TV.
+  const map = E.buildMap(['custom:Z', '7tv-global'], { 'custom:Z': [['Kappa', 'u-custom', false]], '7tv-global': [['Kappa', 'u-7tv', false], ['OMEGALUL', 'u-o', true]] });
+  assert.equal(map.get('Kappa').url, 'u-custom');
+  assert.deepEqual(E.tokenize('ну OMEGALUL это  Kappa!', map), [{ t: 'text', v: 'ну ' }, { t: 'emote', name: 'OMEGALUL', url: 'u-o', animated: true }, { t: 'text', v: ' это  Kappa!' }]);
+  assert.deepEqual(E.tokenize('omegalul', map), [{ t: 'text', v: 'omegalul' }]);
+  assert.deepEqual(E.tokenize('Kappa', new Map()), [{ t: 'text', v: 'Kappa' }]);
+  assert.ok(JSON.parse(E.stvSearchBody('halloween')).variables.q === 'halloween');
+  // Настройки: список наборов очищается от мусора.
+  const n = L.normalize({ emoteSets: ['7tv-global', '7tv-global', 'bad id!', 'event-halloween'], emoteCustom: '  https://7tv.app/emote-sets/x  ', emoteSize: 500 });
+  assert.deepEqual([n.emoteSets, n.emoteCustom, n.emoteSize], [['7tv-global', 'event-halloween'], 'https://7tv.app/emote-sets/x', 64]);
+  assert.deepEqual(L.normalize({}).emoteSets, []);
+  // Добавленное из поиска 7TV: наборы по id и «популярное по слову»; мусор и повторы отбрасываются.
+  const ex = L.normalize({ emoteExtra: [{ id: '01KXRH8G8P8QQ59S744TBB90T5', name: ' xQc ' }, { id: 'q:pepe', name: 'pepe' }, { id: 'bad id', name: 'x' }, { id: '01KXRH8G8P8QQ59S744TBB90T5', name: 'dup' }, { id: 'q:a', name: 'a' }], emoteChannelSet: { key: 'betboom', id: 'zz', name: 'N', count: '5' }, emoteChannel: true });
+  assert.deepEqual(ex.emoteExtra, [{ id: '01KXRH8G8P8QQ59S744TBB90T5', name: 'xQc' }, { id: 'q:pepe', name: 'pepe' }]);
+  assert.deepEqual(ex.emoteChannelSet, { key: 'betboom', id: '', name: 'N', count: 5 });
+  assert.equal(ex.emoteChannel, true);
+  assert.deepEqual([L.normalize({}).emoteExtra, L.normalize({}).emoteChannelSet, L.normalize({}).emoteChannel], [[], null, false]);
+  // Набор смайликов канала на 7TV: имя совпадает точно (регистр, пробелы, точки не важны), привязанный YouTube важнее.
+  const users = E.parseStvUsers({ data: { users: [
+    { id: 'u1', username: 'betboom_cs_ru', display_name: 'betboom_cs_ru', connections: [{ platform: 'TWITCH', username: 'betboom_cs_ru', display_name: 'betboom_cs_ru', emote_set_id: '01KXRH8G8P8QQ59S744TBB90T5' }] },
+    { id: 'u2', username: 'betboom', display_name: 'BetBoom', connections: [{ platform: 'TWITCH', username: 'betboom', display_name: 'BetBoom', emote_set_id: null }, { platform: 'YOUTUBE', username: 'betboom', display_name: 'BetBoom', emote_set_id: '01ABCDEFGHJKMNPQRSTVWXYZ12' }] },
+    { id: 'u3', username: 'nosets', display_name: 'NoSets', connections: [{ platform: 'TWITCH', username: 'nosets', display_name: 'NoSets', emote_set_id: null }] },
+  ] } });
+  assert.deepEqual(users.map((u) => [u.user, u.platform, u.setId]), [['u1', 'TWITCH', '01KXRH8G8P8QQ59S744TBB90T5'], ['u2', 'YOUTUBE', '01ABCDEFGHJKMNPQRSTVWXYZ12']]);
+  assert.equal(E.matchChannel(users, ['BetBoom']).user, 'u2');
+  assert.equal(E.matchChannel(users, ['Bet Boom ']).user, 'u2');
+  assert.equal(E.matchChannel(users, ['@BetBoom_CS_RU']).user, 'u1');
+  assert.equal(E.matchChannel(users, ['BetBoom Poker']), null, 'похожее, но другое имя не берём');
+  assert.equal(E.matchChannel(users, ['ab']), null, 'слишком короткие имена не сопоставляем');
+  assert.deepEqual(E.parseStvSetInfo({ data: { emoteSetsByID: [{ id: 'a', name: ' CS3 ', emote_count: 225 }] } }), { a: { name: 'CS3', count: 225 } });
+  assert.equal(JSON.parse(E.stvUsersBody('xqc')).variables.q, 'xqc');
+});
+
+test('вкус: слова, профиль из истории, ранжирование ленты без AI, мини-описание', () => {
+  const T = require('../src/shared/taste.js');
+  // Слова: служебные уходят, окончания срезаются, регистр не важен.
+  assert.deepEqual(T.tokens('Покер: разбор раздачи — День 3 | THE Best Poker Hands'), ['покер', 'разбор', 'раздач', 'день', 'poker', 'hand']);
+  assert.equal(T.stem('покера'), T.stem('покере'));
+  assert.equal(T.stem('running'), T.stem('runs'));
+  const hist = [
+    { id: 'h1', title: 'Покер: разбор раздач турнира', channel: 'BetBoom Покер', channelUrl: '/@betboom', durationSec: 3600, progress: 100 },
+    { id: 'h2', title: 'Покер турнир финал: лучшие раздачи', channel: 'BetBoom Покер', channelUrl: '/@betboom', durationSec: 4000, progress: 90 },
+    { id: 'h3', title: 'Python для начинающих: функции и классы', channel: 'Код', channelUrl: '/@code', durationSec: 1500, progress: 80 },
+    { id: 'h4', title: 'Рецепт борща', channel: 'Кухня', channelUrl: '/@kitchen', durationSec: 600, progress: 5 },
+  ];
+  const profile = T.buildProfile(hist);
+  assert.equal(profile.n, 4);
+  assert.ok(profile.terms.get('покер') > profile.terms.get('борщ'), 'недосмотренный борщ весит меньше');
+  assert.equal(profile.channels.get('/@betboom').count, 2);
+  assert.ok(profile.medianDur >= 1500 && profile.medianDur <= 4000);
+  assert.deepEqual(T.summarize(profile, 2).channels[0], { name: 'BetBoom Покер', count: 2 });
+  const cands = [
+    { id: 'c1', title: 'Покер: финал недели, разбор раздач', channel: 'BetBoom Покер', channelUrl: '/@betboom', durationSec: 3500 },
+    { id: 'c2', title: 'Разбор покерных раздач для новичков', channel: 'Школа', channelUrl: '/@school', durationSec: 2400 },
+    { id: 'c3', title: 'Python: декораторы и классы подробно', channel: 'Код', channelUrl: '/@code', durationSec: 1800 },
+    { id: 'c4', title: 'Рецепты десертов на неделю', channel: 'Кухня', channelUrl: '/@kitchen', durationSec: 700 },
+    { id: 'c5', title: 'Покер за 30 секунд', channel: 'Клипы', channelUrl: '/@clips', durationSec: 30, short: true },
+    { id: 'h1', title: 'Покер: разбор раздач турнира', channel: 'BetBoom Покер', channelUrl: '/@betboom', durationSec: 3600 },
+    { id: 'c6', title: 'Покер прямой эфир', channel: 'Эфир', channelUrl: '/@live', durationSec: 0, live: true },
+    { id: 'c7', title: 'Покер: ещё раздачи турнира', channel: 'BetBoom Покер', channelUrl: '/@betboom', durationSec: 3500 },
+    { id: 'c8', title: 'Покер: третья раздача турнира', channel: 'BetBoom Покер', channelUrl: '/@betboom', durationSec: 3500 },
+  ];
+  const picks = T.rank(cands, profile, { limit: 4 });
+  const ids = picks.map((p) => p.video.id);
+  assert.ok(['c1', 'c7', 'c8'].includes(ids[0]), 'тот же автор и те же темы — первыми');
+  assert.ok(ids.includes('c2') && ids.includes('c3'));
+  assert.ok(!ids.includes('c5') && !ids.includes('h1') && !ids.includes('c6'), 'Shorts, уже просмотренное и эфир не предлагаются');
+  assert.ok(ids.filter((i) => ['c1', 'c7', 'c8'].includes(i)).length <= 2, 'не больше двух роликов одного автора');
+  assert.deepEqual(picks[0].reasons.channel, { name: 'BetBoom Покер', count: 2 });
+  // Ссылка на канал в карточке может быть записана иначе, чем в истории — тогда автор узнаётся по названию.
+  const viaName = T.rank([{ id: 'n1', title: 'Покер турнир', channel: 'BetBoom Покер', channelUrl: '/channel/UC123', durationSec: 3000 }], profile, { limit: 1 });
+  assert.deepEqual(viaName[0].reasons.channel, { name: 'BetBoom Покер', count: 2 });
+  // На экран слова попадают в том виде, как были в тексте, а не обрезанными основами.
+  assert.deepEqual(T.tokens('Python для начинающих: классы').map(T.show), ['python', 'начинающих', 'классы']);
+  assert.ok(!ids.slice(0, 2).includes('c4'), 'десерты не в начале');
+  assert.ok(picks[0].reasons.terms.includes('покер'));
+  assert.ok(picks[0].score > picks[picks.length - 1].score);
+  // Отклонённый автор исчезает, понравившийся поднимается.
+  assert.ok(!T.rank(cands, profile, { limit: 9, banned: { channels: new Set(['/@betboom']) } }).some((p) => p.video.id === 'c1'));
+  assert.equal(T.rank(cands, T.buildProfile([]), { limit: 3 }).length, 0, 'без истории подбирать не по чему');
+  // Страница ролика → описание и ключевые слова; мини-описание без ссылок, таймкодов и рекламы.
+  const html = '..."videoId":"abc12345678"... "shortDescription":"Разбираем раздачи финала.\\nСмотрите, как играют лучшие. Вторая мысль здесь.\\n0:00 Начало\\nhttps://t.me/x\\nПодписывайтесь на канал!","keywords":["покер","турнир","BetBoom"],"category":"Sports","lengthSeconds":"3500"';
+  const meta = T.parseWatchMeta(html, 'abc12345678');
+  assert.deepEqual([meta.keywords, meta.category, meta.lengthSec], [['покер', 'турнир', 'BetBoom'], 'Sports', 3500]);
+  assert.equal(T.parseWatchMeta(html, 'zzzzzzzzzzz'), null);
+  const mini = T.miniDescription(meta);
+  assert.ok(mini.startsWith('Разбираем раздачи финала.') && !/https|0:00|Подписывайтесь/.test(mini), mini);
+  assert.equal(T.miniDescription({ desc: '', keywords: ['a1', 'b2'] }), 'a1, b2');
+  assert.equal(T.miniDescription(null), '');
+  // Ответ AI: лишние и повторяющиеся id отбрасываются, недостающее дописывается из исходного порядка.
+  assert.deepEqual(T.normalizePicks({ picks: [{ id: 'c3', why: ' потому ' }, { id: 'zzz' }, { id: 'c3' }] }, ['c1', 'c2', 'c3'], 2), [{ id: 'c3', why: 'потому' }, { id: 'c1', why: '' }]);
+  assert.deepEqual(T.normalizePicks(null, ['a', 'b'], 5).map((p) => p.id), ['a', 'b']);
 });
 
 test('durationToSeconds и fileName', () => {

@@ -199,7 +199,7 @@
   });
   document.addEventListener('yt-navigate-finish', ensure);
   window.addEventListener('popstate', ensure);
-  setInterval(ensure, 5000); // редкая страховка: YouTube иногда перестраивает body
+  YFS.loop.every(5000, ensure); // редкая страховка: YouTube иногда перестраивает body (общий таймер loop.js)
   YFS.i18n.init({ applyToPage: false }).then(load).then(ensure);
   YFS.i18n.onChange(() => YFS.i18n.init({ applyToPage: false }).then(render));
 })();
